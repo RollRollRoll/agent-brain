@@ -9,7 +9,14 @@ import sys
 from pathlib import Path
 
 # 添加 src 目录到 Python 路径
-project_root = Path(__file__).parent.parent.parent
+# 优先尝试从环境变量获取项目根目录
+project_root = os.getenv("PROJECT_ROOT")
+if project_root:
+    project_root = Path(project_root)
+else:
+    # 回退到相对路径计算（假设脚本在 .claude/skills/test-notion-connection/ 下）
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+
 sys.path.insert(0, str(project_root / "src"))
 
 from dotenv import load_dotenv
@@ -33,7 +40,9 @@ def extract_page_title(page_data: dict) -> str:
                         return title_items[0].get("plain_text", "无标题")
 
         return "无标题"
-    except Exception:
+    except (KeyError, IndexError, TypeError) as e:
+        # 记录具体错误类型，便于调试
+        print(f"[警告] 提取标题失败: {type(e).__name__}: {e}", file=sys.stderr)
         return "无法提取标题"
 
 

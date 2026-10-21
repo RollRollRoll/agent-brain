@@ -52,25 +52,22 @@ class TokenBucketRateLimiter:
         Returns:
             True（总是成功，会阻塞等待）
         """
-        with self.lock:
-            while True:
+        while True:
+            with self.lock:
                 self._refill()
 
                 if self.tokens >= tokens:
                     # 有足够令牌，立即消耗
                     self.tokens -= tokens
                     return True
-                else:
-                    # 令牌不足，计算需要等待的时间
-                    needed = tokens - self.tokens
-                    wait_time = needed / self.rate
 
-                    print(f"[速率限制] 等待 {wait_time:.2f} 秒...")
+                # 令牌不足，计算需要等待的时间
+                needed = tokens - self.tokens
+                wait_time = needed / self.rate
 
-                    # 释放锁并等待
-                    self.lock.release()
-                    time.sleep(wait_time)
-                    self.lock.acquire()
+            # 在锁外等待，避免竞态条件
+            print(f"[速率限制] 等待 {wait_time:.2f} 秒...")
+            time.sleep(wait_time)
 
     def try_acquire(self, tokens: int = 1) -> bool:
         """尝试获取令牌（非阻塞）

@@ -1,3 +1,8 @@
+---
+name: test-notion-connection
+description: 验证 NOTION_TOKEN 是否有效，并可选读取一个测试页面。配置 Notion 或排查连接问题时使用。
+---
+
 # /test-notion-connection
 
 测试 Notion API 连接并读取一个测试页面。

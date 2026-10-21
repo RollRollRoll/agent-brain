@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""/init-wiki 入口：逻辑在 agent_brain.init_wiki 中"""
+
+import sys
+from pathlib import Path
+
+# 脚本位于 <项目根>/.claude/skills/init-wiki/
+project_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(project_root / "src"))
+
+from agent_brain.init_wiki import main  # noqa: E402
+
+if __name__ == "__main__":
+    main()

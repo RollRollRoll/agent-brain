@@ -5,7 +5,7 @@
 
 import os
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from .rate_limiter import TokenBucketRateLimiter
 
 
@@ -70,6 +70,18 @@ class NotionClient:
             "Content-Type": "application/json"
         }
 
+    @staticmethod
+    def _clean_id(notion_id: str) -> str:
+        """清理 Notion ID（移除连字符）
+
+        Args:
+            notion_id: 原始 Notion ID
+
+        Returns:
+            清理后的 ID（无连字符）
+        """
+        return notion_id.replace("-", "")
+
     def _request(
         self,
         method: str,
@@ -106,13 +118,24 @@ class NotionClient:
 
             # 检查响应状态
             if response.status_code >= 400:
-                error_data = response.json() if response.content else {}
-                error_msg = error_data.get("message", "Unknown error")
+                try:
+                    error_data = response.json() if response.content else {}
+                    error_msg = error_data.get("message", "Unknown error")
+                except (ValueError, requests.exceptions.JSONDecodeError):
+                    error_msg = response.text[:200] if response.text else "Unknown error"
                 raise NotionClientError(
                     f"Notion API 错误 [{response.status_code}]: {error_msg}"
                 )
 
-            return response.json()
+            # 处理无内容响应（204 No Content）
+            if response.status_code == 204 or not response.content:
+                return {}
+
+            # 解析 JSON 响应
+            try:
+                return response.json()
+            except (ValueError, requests.exceptions.JSONDecodeError) as e:
+                raise NotionClientError(f"无法解析响应 JSON: {str(e)}") from e
 
         except requests.exceptions.RequestException as e:
             raise NotionClientError(f"网络请求失败: {str(e)}") from e
@@ -152,9 +175,7 @@ class NotionClient:
         Raises:
             NotionClientError: 页面不存在或无权访问
         """
-        # 清理 page_id（移除连字符）
-        clean_id = page_id.replace("-", "")
-
+        clean_id = self._clean_id(page_id)
         return self._request("GET", f"/pages/{clean_id}")
 
     def get_database(self, database_id: str) -> Dict[str, Any]:
@@ -169,7 +190,7 @@ class NotionClient:
         Raises:
             NotionClientError: 数据库不存在或无权访问
         """
-        clean_id = database_id.replace("-", "")
+        clean_id = self._clean_id(database_id)
         return self._request("GET", f"/databases/{clean_id}")
 
     def query_database(
@@ -195,7 +216,7 @@ class NotionClient:
         Raises:
             NotionClientError: 查询失败
         """
-        clean_id = database_id.replace("-", "")
+        clean_id = self._clean_id(database_id)
 
         payload = {"page_size": page_size}
         if filter_obj:
@@ -252,7 +273,140 @@ class NotionClient:
         Raises:
             NotionClientError: 更新失败
         """
-        clean_id = page_id.replace("-", "")
+        clean_id = self._clean_id(page_id)
 
         payload = {"properties": properties}
         return self._request("PATCH", f"/pages/{clean_id}", json=payload)
+
+    def archive_page(self, page_id: str) -> Dict[str, Any]:
+        """归档页面（移入回收站，可在 Notion 中恢复）
+
+        归档父页面会连带归档它下面的子页面和数据库。
+
+        Raises:
+            NotionClientError: 归档失败
+        """
+        clean_id = self._clean_id(page_id)
+        return self._request("PATCH", f"/pages/{clean_id}", json={"archived": True})
+
+    def search_pages(self, query: str) -> List[Dict[str, Any]]:
+        """搜索页面
+
+        Args:
+            query: 搜索关键词
+
+        Returns:
+            匹配的页面列表
+
+        Raises:
+            NotionClientError: 搜索失败
+        """
+        payload = {
+            "query": query,
+            "filter": {"property": "object", "value": "page"}
+        }
+        response = self._request("POST", "/search", json=payload)
+        return response.get("results", [])
+
+    def create_database(
+        self,
+        parent_id: str,
+        title: str,
+        properties: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """创建数据库（便捷方法）
+
+        Args:
+            parent_id: 父页面 ID
+            title: 数据库标题
+            properties: 数据库属性定义
+
+        Returns:
+            创建的数据库对象（包含 id, url, title）
+
+        Raises:
+            NotionClientError: 创建失败
+        """
+        payload = {
+            "parent": {"type": "page_id", "page_id": self._clean_id(parent_id)},
+            "title": [{"type": "text", "text": {"content": title}}],
+            "properties": properties
+        }
+        result = self._request("POST", "/databases", json=payload)
+
+        # 提取标题
+        title_text = ""
+        if result.get("title") and len(result["title"]) > 0:
+            title_text = result["title"][0].get("plain_text", "")
+
+        return {
+            "id": result["id"],
+            "url": result.get("url", ""),
+            "title": title_text
+        }
+
+    def create_page_simple(
+        self,
+        title: str,
+        parent_id: str,
+        content: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """创建页面（便捷方法）
+
+        Internal integration 不能在 workspace 顶层建页面，必须指定父页面。
+
+        Args:
+            title: 页面标题
+            parent_id: 父页面 ID
+            content: 纯文本内容，按行拆成段落（可选）
+
+        Returns:
+            创建的页面对象（包含 id, url, title）
+
+        Raises:
+            ValueError: parent_id 为空
+            NotionClientError: 创建失败
+        """
+        if not parent_id:
+            raise ValueError("parent_id 不能为空：internal integration 必须指定父页面")
+        parent = {"type": "page_id", "page_id": self._clean_id(parent_id)}
+
+        # 构建标题属性（Notion API 格式）
+        properties = {
+            "title": {
+                "title": [{"type": "text", "text": {"content": title}}]
+            }
+        }
+
+        # 构建内容块
+        children = None
+        if content:
+            # 简单处理：将内容分段，每段作为一个 paragraph block
+            lines = content.strip().split("\n")
+            children = []
+            for line in lines:
+                stripped_line = line.strip()
+                if stripped_line:
+                    children.append({
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [{"type": "text", "text": {"content": stripped_line}}]
+                        }
+                    })
+
+        result = self.create_page(parent, properties, children)
+
+        # 提取标题
+        title_text = ""
+        if result.get("properties", {}).get("title"):
+            title_prop = result["properties"]["title"]
+            if title_prop.get("title") and len(title_prop["title"]) > 0:
+                title_text = title_prop["title"][0].get("plain_text", "")
+
+        return {
+            "id": result["id"],
+            "url": result.get("url", ""),
+            "title": title_text or title
+        }
+
