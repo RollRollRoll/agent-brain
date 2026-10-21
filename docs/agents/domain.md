@@ -4,7 +4,7 @@
 
 ## 探索之前先读这些
 
-- 仓库根的 **`CONTEXT.md`**
+- 仓库根的 **`GLOSSARY.md`**
 - **`docs/adr/`**：读那些涉及你即将动手的区域的 ADR
 
 这些文件不存在时直接继续，不提示缺失，也不主动建议创建。
@@ -16,7 +16,7 @@
 
 ```text
 /
-├── CONTEXT.md
+├── GLOSSARY.md
 ├── docs/adr/
 │   ├── 0001-notion-over-obsidian.md
 │   ├── 0002-skills-in-git-not-notion.md
@@ -28,7 +28,7 @@
 ## 使用术语表里的词汇
 
 **当你的产出点到一个领域概念时**（issue 标题、重构提案、假设、测试名），
-**用 `CONTEXT.md` 里定义的那个词**。不要滑向术语表明确要避免的同义词。
+**用 `GLOSSARY.md` 里定义的那个词**。不要滑向术语表明确要避免的同义词。
 
 ## 标出与 ADR 的冲突
 

@@ -4,7 +4,7 @@
 spec_id: SPEC-LLM-WIKI-001
 related_issue: https://github.com/RollRollRoll/agent-brain
 source_context:
-  - /Users/chenjinfan/WorkSpace/second-brain/CONTEXT.md
+  - /Users/chenjinfan/WorkSpace/second-brain/GLOSSARY.md
 related_adrs:
   - docs/adr/0001-notion-over-obsidian.md
   - docs/adr/0002-skills-in-git-not-notion.md
@@ -106,7 +106,7 @@ last_updated: 2026-10-21
 - 批量操作需要实现请求队列和速率控制
 
 **兼容性约束**：
-- 必须遵守 CONTEXT.md 中定义的术语
+- 必须遵守 GLOSSARY.md 中定义的术语
 - 必须遵守 ADR 0001-0004 中的技术决策
 
 **安全约束**：
@@ -303,7 +303,7 @@ last_updated: 2026-10-21
 ##### SCN-004-E：自动修复简单问题
 
 - GIVEN Lint 发现缺失链接（SCN-004-C）
-- AND 链接关系明确（页面 A 提到的术语在 CONTEXT.md 中有定义，且对应页面 B）
+- AND 链接关系明确（页面 A 提到的术语在 GLOSSARY.md 中有定义，且对应页面 B）
 - WHEN 用户在 Lint 报告中确认"自动修复"
 - THEN 系统自动建立链接并记录到 Changelog
 
