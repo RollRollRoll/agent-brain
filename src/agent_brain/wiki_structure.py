@@ -5,6 +5,8 @@ Notion Wiki 结构管理
 """
 from typing import Any, Dict, List, Optional
 
+from .notion_client import NotionClientError
+
 
 ROOT_TITLE = "LLM Wiki 系统"
 WIKI_CATEGORIES = ["concepts/", "techniques/", "tools/"]
@@ -143,14 +145,22 @@ DATABASE_SCHEMAS = {
 }
 
 
-def build_properties(db_name: str, db_ids: Dict[str, str]) -> Dict[str, Any]:
+# 默认 Table 视图由 Notion 在建库时自动创建，这里只补额外的视图
+VIEW_SPECS = [
+    {"database": "Sources", "name": "按状态", "type": "board", "group_by": "状态"},
+    {"database": "Wiki Index", "name": "知识卡片", "type": "gallery",
+     "show": ["分类", "领域标签", "简短摘要"]},
+]
+
+
+def build_properties(db_name: str, ds_ids: Dict[str, str]) -> Dict[str, Any]:
     """把 schema 转成 Notion API 的属性定义
 
-    Notion 的属性定义形如 {"类型名": {配置}}，relation 需要真实的 database_id。
+    Notion 的属性定义形如 {"类型名": {配置}}；relation 只能写 data_source_id（ADR 0005）。
 
     Args:
         db_name: 数据库名称
-        db_ids: 已创建数据库的 名称 → ID 映射
+        ds_ids: 已创建数据库的 名称 → data source ID 映射
 
     Raises:
         ValueError: 数据库名未知，或被关联的数据库还没创建
@@ -163,11 +173,11 @@ def build_properties(db_name: str, db_ids: Dict[str, str]) -> Dict[str, Any]:
         prop_type = spec["type"]
         if prop_type == "relation":
             target = spec["relation_target"]
-            if target not in db_ids:
+            if target not in ds_ids:
                 raise ValueError(f"{db_name}.{prop_name} 关联的数据库 {target} 尚未创建")
             properties[prop_name] = {
                 "relation": {
-                    "database_id": db_ids[target],
+                    "data_source_id": ds_ids[target],
                     "type": "single_property",
                     "single_property": {}
                 }
@@ -175,6 +185,47 @@ def build_properties(db_name: str, db_ids: Dict[str, str]) -> Dict[str, Any]:
         else:
             properties[prop_name] = {prop_type: spec.get(prop_type, {})}
     return properties
+
+
+def build_view_configuration(spec: Dict[str, Any], prop_ids: Dict[str, str]) -> Dict[str, Any]:
+    """把 VIEW_SPECS 中的一项转成 Views API 的 configuration
+
+    Args:
+        spec: VIEW_SPECS 中的一项
+        prop_ids: 属性名 → 属性 ID
+
+    Raises:
+        ValueError: 引用的属性在 data source 中不存在
+    """
+    def prop_id(name: str) -> str:
+        if name not in prop_ids:
+            raise ValueError(f"{spec['database']} 中没有属性 {name}")
+        return prop_ids[name]
+
+    if spec["type"] == "board":
+        return {
+            "type": "board",
+            "group_by": {
+                "type": "select",
+                "property_id": prop_id(spec["group_by"]),
+                "sort": {"type": "manual"},
+                "hide_empty_groups": False
+            }
+        }
+    if spec["type"] == "gallery":
+        return {
+            "type": "gallery",
+            "properties": [{"property_id": prop_id(n), "visible": True} for n in spec["show"]]
+        }
+    raise ValueError(f"不支持的视图类型: {spec['type']}")
+
+
+def _property_ids(data_source: Dict[str, Any]) -> Dict[str, str]:
+    """从 data source 对象中取出 属性名 → 属性 ID"""
+    return {
+        prop.get("name", key): prop["id"]
+        for key, prop in data_source.get("properties", {}).items()
+    }
 
 
 def _page_title(page: Dict[str, Any]) -> str:
@@ -214,13 +265,13 @@ class WikiStructure:
     def find_existing(self) -> Optional[Dict[str, Any]]:
         """查找已存在的 "LLM Wiki 系统" 页面
 
-        搜索是模糊匹配，所以还要核对标题完全一致、且未归档。
+        搜索是模糊匹配，所以还要核对标题完全一致、且不在回收站里。
 
         Returns:
             找到时返回 {"id", "url", "title"}，否则返回 None
         """
         for page in self.client.search_pages(ROOT_TITLE):
-            if page.get("archived") or page.get("in_trash"):
+            if page.get("in_trash"):
                 continue
             if _page_title(page) == ROOT_TITLE:
                 return {"id": page["id"], "url": page.get("url", ""), "title": ROOT_TITLE}
@@ -234,19 +285,45 @@ class WikiStructure:
             content="这是 Agent Brain 知识库的根页面，由 /init-wiki 创建。"
         )
 
-    def create_database(self, parent_id: str, db_name: str, db_ids: Dict[str, str]) -> Dict[str, Any]:
+    def create_database(self, parent_id: str, db_name: str, ds_ids: Dict[str, str]) -> Dict[str, Any]:
         """在指定页面下创建数据库
 
         Args:
             parent_id: 父页面 ID
             db_name: 数据库名称（DATABASE_SCHEMAS 的 key）
-            db_ids: 已创建数据库的 名称 → ID 映射，用于填充 relation
+            ds_ids: 已创建数据库的 名称 → data source ID 映射，用于填充 relation
         """
         return self.client.create_database(
             parent_id=parent_id,
             title=db_name,
-            properties=build_properties(db_name, db_ids)
+            properties=build_properties(db_name, ds_ids)
         )
+
+    def create_views(self, databases: Dict[str, Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """按 VIEW_SPECS 给数据库补建视图
+
+        视图失败不影响数据库本身可用，所以逐个记录失败、继续往下建。
+
+        Returns:
+            {"created": [{"database", "name", "type"}], "failed": [{"database", "name", "error"}]}
+        """
+        created, failed = [], []
+        for spec in VIEW_SPECS:
+            db = databases[spec["database"]]
+            try:
+                data_source = self.client.get_data_source(db["data_source_id"])
+                configuration = build_view_configuration(spec, _property_ids(data_source))
+                self.client.create_view(
+                    database_id=db["id"],
+                    data_source_id=db["data_source_id"],
+                    name=spec["name"],
+                    view_type=spec["type"],
+                    configuration=configuration
+                )
+                created.append({"database": spec["database"], "name": spec["name"], "type": spec["type"]})
+            except (NotionClientError, ValueError) as e:
+                failed.append({"database": spec["database"], "name": spec["name"], "error": str(e)})
+        return {"created": created, "failed": failed}
 
     def create_wiki_categories(self, parent_id: str) -> List[Dict[str, Any]]:
         """创建 concepts/、techniques/、tools/ 三个分类页面"""
@@ -263,37 +340,39 @@ class WikiStructure:
         """初始化完整的 Wiki 结构
 
         Args:
-            overwrite: 已存在结构时，是否归档旧结构后重建
+            overwrite: 已存在结构时，是否把旧结构移入回收站后重建
 
         Returns:
-            {"root_page", "databases", "categories", "archived"}
+            {"root_page", "databases", "views", "categories", "trashed"}
 
         Raises:
             WikiStructureExistsError: 已存在结构且 overwrite=False
         """
-        archived = None
+        trashed = None
         existing = self.find_existing()
         if existing:
             if not overwrite:
                 raise WikiStructureExistsError(existing)
-            # 归档根页面会连带归档子页面和数据库，可在 Notion 回收站恢复
-            self.client.archive_page(existing["id"])
-            archived = existing
+            # 移走根页面会连带移走子页面和数据库，可在 Notion 回收站恢复
+            self.client.trash_page(existing["id"])
+            trashed = existing
 
         root_page = self.create_root_page()
 
         databases: Dict[str, Dict[str, Any]] = {}
-        db_ids: Dict[str, str] = {}
+        ds_ids: Dict[str, str] = {}
         for db_name in DATABASE_SCHEMAS:
-            db = self.create_database(root_page["id"], db_name, db_ids)
+            db = self.create_database(root_page["id"], db_name, ds_ids)
             databases[db_name] = db
-            db_ids[db_name] = db["id"]
+            ds_ids[db_name] = db["data_source_id"]
 
+        views = self.create_views(databases)
         categories = self.create_wiki_categories(root_page["id"])
 
         return {
             "root_page": root_page,
             "databases": databases,
+            "views": views,
             "categories": categories,
-            "archived": archived
+            "trashed": trashed
         }

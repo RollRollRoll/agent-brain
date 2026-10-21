@@ -36,7 +36,7 @@ def run(
     parser = argparse.ArgumentParser(prog="init-wiki", description="初始化 Notion Wiki 结构")
     parser.add_argument("--parent", help="已授权页面的 ID，默认读 NOTION_PARENT_PAGE_ID")
     parser.add_argument("--overwrite", action="store_true",
-                        help="已存在结构时，归档旧结构后重建（需用户明确确认）")
+                        help="已存在结构时，把旧结构移入回收站后重建（需用户明确确认）")
     args = parser.parse_args(argv)
 
     token = env.get("NOTION_TOKEN")
@@ -64,16 +64,25 @@ def run(
         print(f"❌ 初始化失败: {e}", file=out)
         return EXIT_ERROR
 
-    if result["archived"]:
-        print(f"🗑️  已归档旧结构: {result['archived'].get('url') or result['archived']['id']}", file=out)
+    if result["trashed"]:
+        print(f"🗑️  旧结构已移入回收站: {result['trashed'].get('url') or result['trashed']['id']}", file=out)
     root = result["root_page"]
     print(f"✅ 初始化完成\n\n📄 {root['title']}: {root['url']}\n\n🗄️  数据库:", file=out)
     for name, db in result["databases"].items():
         print(f"   - {name}: {db['url']}", file=out)
+
+    print("\n👀 视图（每个数据库另有一个默认 Table 视图）:", file=out)
+    for view in result["views"]["created"]:
+        print(f"   - {view['database']} / {view['name']}（{view['type']}）", file=out)
+    for view in result["views"]["failed"]:
+        print(f"   ⚠️  {view['database']} / {view['name']} 创建失败: {view['error']}", file=out)
+
     print("\n📁 分类页面:", file=out)
     for cat in result["categories"]:
         print(f"   - {cat['title']}: {cat['url']}", file=out)
-    print("\n💡 Board / Gallery 视图需要在 Notion 中手动添加（API 不支持创建视图）", file=out)
+
+    if result["views"]["failed"]:
+        print("\n💡 数据库已可用。失败的视图可以在 Notion 中手动添加。", file=out)
     return EXIT_OK
 
 

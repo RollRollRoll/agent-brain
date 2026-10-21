@@ -30,7 +30,8 @@ class NotionClient:
     """
 
     BASE_URL = "https://api.notion.com/v1"
-    API_VERSION = "2022-06-28"
+    # Views API 只接受 2026-03-11，见 ADR 0005
+    API_VERSION = "2026-03-11"
 
     def __init__(
         self,
@@ -193,18 +194,27 @@ class NotionClient:
         clean_id = self._clean_id(database_id)
         return self._request("GET", f"/databases/{clean_id}")
 
-    def query_database(
+    def get_data_source(self, data_source_id: str) -> Dict[str, Any]:
+        """读取 data source（含属性 schema 和每个属性的 id）
+
+        Raises:
+            NotionClientError: data source 不存在或无权访问
+        """
+        clean_id = self._clean_id(data_source_id)
+        return self._request("GET", f"/data_sources/{clean_id}")
+
+    def query_data_source(
         self,
-        database_id: str,
+        data_source_id: str,
         filter_obj: Optional[Dict[str, Any]] = None,
         sorts: Optional[list] = None,
         start_cursor: Optional[str] = None,
         page_size: int = 100
     ) -> Dict[str, Any]:
-        """查询数据库
+        """查询 data source 中的条目
 
         Args:
-            database_id: 数据库 ID
+            data_source_id: data source ID（不是 database ID）
             filter_obj: 过滤条件
             sorts: 排序规则
             start_cursor: 分页游标
@@ -216,7 +226,7 @@ class NotionClient:
         Raises:
             NotionClientError: 查询失败
         """
-        clean_id = self._clean_id(database_id)
+        clean_id = self._clean_id(data_source_id)
 
         payload = {"page_size": page_size}
         if filter_obj:
@@ -226,7 +236,7 @@ class NotionClient:
         if start_cursor:
             payload["start_cursor"] = start_cursor
 
-        return self._request("POST", f"/databases/{clean_id}/query", json=payload)
+        return self._request("POST", f"/data_sources/{clean_id}/query", json=payload)
 
     def create_page(
         self,
@@ -237,7 +247,7 @@ class NotionClient:
         """创建页面
 
         Args:
-            parent: 父级（database_id 或 page_id）
+            parent: 父级（page_id，或往数据库里建条目时用 data_source_id）
             properties: 页面属性
             children: 页面内容块（可选）
 
@@ -278,16 +288,16 @@ class NotionClient:
         payload = {"properties": properties}
         return self._request("PATCH", f"/pages/{clean_id}", json=payload)
 
-    def archive_page(self, page_id: str) -> Dict[str, Any]:
-        """归档页面（移入回收站，可在 Notion 中恢复）
+    def trash_page(self, page_id: str) -> Dict[str, Any]:
+        """把页面移入回收站（可在 Notion 中恢复）
 
-        归档父页面会连带归档它下面的子页面和数据库。
+        移走父页面会连带移走它下面的子页面和数据库。
 
         Raises:
-            NotionClientError: 归档失败
+            NotionClientError: 操作失败
         """
         clean_id = self._clean_id(page_id)
-        return self._request("PATCH", f"/pages/{clean_id}", json={"archived": True})
+        return self._request("PATCH", f"/pages/{clean_id}", json={"in_trash": True})
 
     def search_pages(self, query: str) -> List[Dict[str, Any]]:
         """搜索页面
@@ -321,29 +331,69 @@ class NotionClient:
             title: 数据库标题
             properties: 数据库属性定义
 
+        Notion 会同时创建第一个 data source 和一个默认 Table 视图。
+
         Returns:
-            创建的数据库对象（包含 id, url, title）
+            {"id", "data_source_id", "url", "title"}
+
+        Raises:
+            NotionClientError: 创建失败，或拿不到 data source ID
+        """
+        payload = {
+            "parent": {"type": "page_id", "page_id": self._clean_id(parent_id)},
+            "title": [{"type": "text", "text": {"content": title}}],
+            "initial_data_source": {"properties": properties}
+        }
+        result = self._request("POST", "/databases", json=payload)
+
+        # 响应可能是只含 id 的精简版，这时再读一次完整的数据库对象
+        if not result.get("data_sources"):
+            result = self.get_database(result["id"])
+        data_sources = result.get("data_sources") or []
+        if not data_sources:
+            raise NotionClientError(f"数据库 {title} 创建后没有返回 data source")
+
+        title_text = "".join(t.get("plain_text", "") for t in result.get("title") or [])
+
+        return {
+            "id": result["id"],
+            "data_source_id": data_sources[0]["id"],
+            "url": result.get("url", ""),
+            "title": title_text or title
+        }
+
+    def create_view(
+        self,
+        database_id: str,
+        data_source_id: str,
+        name: str,
+        view_type: str,
+        configuration: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """在数据库上新建视图（追加到视图标签末尾）
+
+        Args:
+            database_id: 数据库 ID
+            data_source_id: 视图作用的 data source ID
+            name: 视图名称
+            view_type: table / board / gallery 等
+            configuration: 视图配置，其中 type 必须与 view_type 一致；board 必须带 group_by
+
+        Returns:
+            View 对象
 
         Raises:
             NotionClientError: 创建失败
         """
         payload = {
-            "parent": {"type": "page_id", "page_id": self._clean_id(parent_id)},
-            "title": [{"type": "text", "text": {"content": title}}],
-            "properties": properties
+            "database_id": self._clean_id(database_id),
+            "data_source_id": self._clean_id(data_source_id),
+            "name": name,
+            "type": view_type
         }
-        result = self._request("POST", "/databases", json=payload)
-
-        # 提取标题
-        title_text = ""
-        if result.get("title") and len(result["title"]) > 0:
-            title_text = result["title"][0].get("plain_text", "")
-
-        return {
-            "id": result["id"],
-            "url": result.get("url", ""),
-            "title": title_text
-        }
+        if configuration:
+            payload["configuration"] = configuration
+        return self._request("POST", "/views", json=payload)
 
     def create_page_simple(
         self,

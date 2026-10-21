@@ -37,4 +37,6 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 
      用户没有明确同意时，不要加 `--overwrite`。
 
-3. 提醒用户：Board / Gallery 视图需要在 Notion 中手动添加。
+3. 视图：脚本会给 Sources 建「按状态」Board 视图，给 Wiki Index 建「知识卡片」Gallery 视图；
+   每个数据库另有 Notion 自动创建的默认 Table 视图。输出里如果有视图创建失败，
+   告诉用户数据库本身可用，失败的视图可以在 Notion 中手动添加。

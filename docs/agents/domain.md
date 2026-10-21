@@ -21,7 +21,8 @@
 │   ├── 0001-notion-over-obsidian.md
 │   ├── 0002-skills-in-git-not-notion.md
 │   ├── 0003-agent-failure-feedback.md
-│   └── 0004-conflict-resolution-mechanism.md
+│   ├── 0004-conflict-resolution-mechanism.md
+│   └── 0005-notion-api-2026-03-11.md
 └── src/
 ```
 

@@ -5,9 +5,17 @@ from unittest.mock import Mock
 
 from agent_brain.init_wiki import EXIT_ERROR, EXIT_EXISTS, EXIT_OK, run
 from agent_brain.notion_client import NotionClientError
-from agent_brain.wiki_structure import ROOT_TITLE
+from agent_brain.wiki_structure import DATABASE_SCHEMAS, ROOT_TITLE
 
 ENV = {"NOTION_TOKEN": "secret_test", "NOTION_PARENT_PAGE_ID": "parent-1"}
+
+
+def _data_source(ds_id):
+    db_name = ds_id[len("ds-"):]
+    return {"id": ds_id, "properties": {
+        name: {"id": f"id-{name}", "name": name}
+        for name in DATABASE_SCHEMAS[db_name]["properties"]
+    }}
 
 
 def _client(existing=False):
@@ -22,8 +30,11 @@ def _client(existing=False):
         "id": f"page-{title}", "url": f"https://notion.so/{title}", "title": title
     }
     client.create_database.side_effect = lambda parent_id, title, properties: {
-        "id": f"db-{title}", "url": f"https://notion.so/db-{title}", "title": title
+        "id": f"db-{title}", "data_source_id": f"ds-{title}",
+        "url": f"https://notion.so/db-{title}", "title": title
     }
+    client.get_data_source.side_effect = _data_source
+    client.create_view.return_value = {"object": "view", "id": "v-1"}
     return client
 
 
@@ -42,6 +53,18 @@ def test_首次初始化成功并输出所有链接():
         assert f"https://notion.so/db-{name}" in output
     for cat in ["concepts/", "techniques/", "tools/"]:
         assert cat in output
+    assert "Sources / 按状态（board）" in output
+    assert "Wiki Index / 知识卡片（gallery）" in output
+    assert "手动添加" not in output
+
+
+def test_视图失败时仍成功并提示手动添加():
+    client = _client()
+    client.create_view.side_effect = NotionClientError("Notion API 错误 [400]: bad")
+    code, output, _ = _run([], client=client)
+    assert code == EXIT_OK
+    assert "按状态 创建失败" in output
+    assert "手动添加" in output
 
 
 def test_已存在时提示是否覆盖且不做任何修改():
@@ -50,14 +73,14 @@ def test_已存在时提示是否覆盖且不做任何修改():
     assert "Wiki 结构已存在，是否覆盖？" in output
     assert "https://notion.so/old-1" in output
     client.create_page_simple.assert_not_called()
-    client.archive_page.assert_not_called()
+    client.trash_page.assert_not_called()
 
 
-def test_带overwrite时归档旧结构并重建():
+def test_带overwrite时旧结构移入回收站并重建():
     code, output, client = _run(["--overwrite"], client=_client(existing=True))
     assert code == EXIT_OK
-    client.archive_page.assert_called_once_with("old-1")
-    assert "已归档旧结构" in output
+    client.trash_page.assert_called_once_with("old-1")
+    assert "旧结构已移入回收站" in output
 
 
 def test_缺少token时报错():

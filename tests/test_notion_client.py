@@ -39,7 +39,7 @@ class TestNotionClient:
         # 检查请求头
         call_args = mock_request.call_args
         assert call_args[1]['headers']['Authorization'] == "Bearer secret_test"
-        assert call_args[1]['headers']['Notion-Version'] == "2022-06-28"
+        assert call_args[1]['headers']['Notion-Version'] == "2026-03-11"
 
     @patch('requests.request')
     def test_验证连接失败时抛出异常(self, mock_request):
@@ -149,14 +149,15 @@ class TestNotionClient:
 
     @patch('requests.request')
     def test_创建数据库成功(self, mock_request):
-        """创建数据库应该返回数据库对象"""
+        """schema 放在 initial_data_source 下，返回 data source ID"""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "object": "database",
             "id": "db-123",
             "url": "https://notion.so/db-123",
-            "title": [{"type": "text", "text": {"content": "测试数据库"}, "plain_text": "测试数据库"}]
+            "title": [{"type": "text", "text": {"content": "测试数据库"}, "plain_text": "测试数据库"}],
+            "data_sources": [{"id": "ds-123", "name": "测试数据库"}]
         }
         mock_request.return_value = mock_response
 
@@ -167,31 +168,81 @@ class TestNotionClient:
             properties={"Name": {"title": {}}}
         )
 
-        assert db["id"] == "db-123"
-        assert db["title"] == "测试数据库"
-        assert db["url"] == "https://notion.so/db-123"
+        assert db == {
+            "id": "db-123",
+            "data_source_id": "ds-123",
+            "url": "https://notion.so/db-123",
+            "title": "测试数据库"
+        }
+        payload = mock_request.call_args[1]['json']
+        assert payload["initial_data_source"] == {"properties": {"Name": {"title": {}}}}
+        assert "properties" not in payload
 
     @patch('requests.request')
-    def test_创建数据库时标题为空(self, mock_request):
-        """创建数据库时 API 返回空标题应该正常处理"""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "object": "database",
-            "id": "db-123",
-            "url": "https://notion.so/db-123",
-            "title": []  # 空标题数组
+    def test_创建数据库返回精简响应时补读数据库(self, mock_request):
+        """响应只有 id 时，再 GET 一次数据库拿 data source ID"""
+        partial = Mock(status_code=200)
+        partial.json.return_value = {"object": "database", "id": "db-123"}
+        full = Mock(status_code=200)
+        full.json.return_value = {
+            "object": "database", "id": "db-123", "url": "u", "title": [],
+            "data_sources": [{"id": "ds-123", "name": "x"}]
         }
-        mock_request.return_value = mock_response
+        mock_request.side_effect = [partial, full]
 
-        client = NotionClient(token="secret_test")
-        db = client.create_database(
-            parent_id="page-123",
-            title="测试",
-            properties={"Name": {"title": {}}}
+        db = NotionClient(token="secret_test").create_database(
+            parent_id="page-123", title="测试", properties={"Name": {"title": {}}}
         )
 
-        assert db["title"] == ""  # 应该返回空字符串而不是崩溃
+        assert db["data_source_id"] == "ds-123"
+        assert db["title"] == "测试"  # 响应标题为空时回退到请求里的标题
+        second = mock_request.call_args_list[1][1]
+        assert second['method'] == "GET"
+        assert second['url'].endswith("/databases/db123")
+
+    @patch('requests.request')
+    def test_创建数据库没有data_source时报错(self, mock_request):
+        """拿不到 data source ID 时抛出 NotionClientError"""
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"object": "database", "id": "db-123", "data_sources": []}
+        mock_request.return_value = mock_response
+
+        with pytest.raises(NotionClientError, match="data source"):
+            NotionClient(token="secret_test").create_database(
+                parent_id="page-123", title="测试", properties={}
+            )
+
+    @patch('requests.request')
+    def test_查询data_source使用新路径(self, mock_request):
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"results": []}
+        mock_request.return_value = mock_response
+
+        NotionClient(token="secret_test").query_data_source("ds-1")
+
+        call_args = mock_request.call_args[1]
+        assert call_args['method'] == "POST"
+        assert call_args['url'].endswith("/data_sources/ds1/query")
+
+    @patch('requests.request')
+    def test_创建视图请求格式(self, mock_request):
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"object": "view", "id": "v-1"}
+        mock_request.return_value = mock_response
+
+        config = {"type": "gallery", "properties": []}
+        NotionClient(token="secret_test").create_view(
+            database_id="db-1", data_source_id="ds-1", name="卡片",
+            view_type="gallery", configuration=config
+        )
+
+        call_args = mock_request.call_args[1]
+        assert call_args['method'] == "POST"
+        assert call_args['url'].endswith("/views")
+        assert call_args['json'] == {
+            "database_id": "db1", "data_source_id": "ds1",
+            "name": "卡片", "type": "gallery", "configuration": config
+        }
 
     @patch('requests.request')
     def test_简化创建页面成功(self, mock_request):
@@ -242,19 +293,19 @@ class TestNotionClient:
         assert payload["properties"]["title"]["title"][0]["text"]["content"] == "标题"
 
     @patch('requests.request')
-    def test_归档页面(self, mock_request):
-        """archive_page 应该 PATCH archived=true"""
+    def test_页面移入回收站(self, mock_request):
+        """2026-03-11 用 in_trash 代替 archived"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"id": "p-1", "archived": True}
+        mock_response.json.return_value = {"id": "p-1", "in_trash": True}
         mock_request.return_value = mock_response
 
-        NotionClient(token="secret_test").archive_page("p-1")
+        NotionClient(token="secret_test").trash_page("p-1")
 
         call_args = mock_request.call_args[1]
         assert call_args['method'] == "PATCH"
         assert call_args['url'].endswith("/pages/p1")
-        assert call_args['json'] == {"archived": True}
+        assert call_args['json'] == {"in_trash": True}
 
     @patch('requests.request')
     def test_JSON解析错误时抛出NotionClientError(self, mock_request):
