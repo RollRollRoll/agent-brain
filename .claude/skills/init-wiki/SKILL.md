@@ -33,12 +33,27 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 4. **建根页面**：用 `notion-create-pages` 创建 `LLM Wiki 系统`，内容写一句「Agent Brain 知识库根页面，由 /init-wiki 创建。」
 
 5. **建数据库**：在根页面下用 `notion-create-database`，按 schema.md 的顺序逐个创建。
-   - 每建完一个，记下它的 database URL 和 data source ID（`collection://...`）。响应里没有 data source ID 时，
-     用 `notion-fetch` 读取该数据库获取。
-   - relation 字段填被关联库的 data source ID。
-   - select 字段的选项必须全部写上。
+   `schema` 参数用 SQL DDL，例如（2026-10-22 实测可用）：
 
-6. **建视图**：按 schema.md 的视图表，用 `notion-create-view` 补建视图。
+   ```sql
+   CREATE TABLE ("标题" TITLE, "状态" SELECT('待处理':gray, '已入库':green),
+                 "领域标签" MULTI_SELECT(), "简短摘要" RICH_TEXT, "链接" URL,
+                 "证据强度评分" NUMBER, "执行时间" DATE,
+                 "添加时间" CREATED_TIME, "最后更新时间" LAST_EDITED_TIME,
+                 "来源材料" RELATION('<被关联库的 data source ID>'))
+   ```
+
+   - 响应里的 `<data-source url="collection://...">` 就是 data source ID，记下它和 database URL。
+     响应里没有时，用 `notion-fetch` 读取该数据库获取。
+   - `RELATION('<id>')` 是单向关联，填被关联库的 data source ID（不带 `collection://` 前缀）。
+   - select 字段的选项必须全部写上；颜色可选 default、gray、brown、orange、yellow、green、blue、purple、pink、red。
+   - Sources、Wiki Index 建完后，剩下 3 个库互不依赖，可以并行创建。
+
+6. **建视图**：按 schema.md 的视图表，用 `notion-create-view` 补建视图，`database_id` 和 `data_source_id` 都要传。
+   `configure` 用视图 DSL：
+   - Board：`GROUP BY "状态" SHOW EMPTY`。select 属性不要加 `BY OPTION` / `BY GROUP`，那两个只用于 status 属性。
+   - Gallery：`SHOW "分类", "领域标签", "简短摘要"`（Notion 会自动把标题加进卡片）。
+
    单个视图失败时记下错误，继续往下，不回滚已建好的结构。
 
 7. **建分类页面**：在根页面下用 `notion-create-pages` 一次创建 `concepts/`、`techniques/`、`tools/`。
