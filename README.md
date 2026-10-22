@@ -20,24 +20,48 @@ claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp
 
 如果登录后 `notion-*` 工具没出现，重启 Claude Code 会话。
 
-### 3. 初始化 Wiki
+### 3. 安装 plugin
 
-在本仓库目录下的 Claude Code 会话中运行：
+本仓库是一个 Claude Code plugin marketplace。在任意目录运行：
+
+```bash
+claude plugin marketplace add RollRollRoll/agent-brain
+claude plugin install wiki-admin@agent-brain
+```
+
+`wiki-admin` 提供维护 Wiki 的命令。从 Wiki 提炼出的专业 skill 按领域放在各自的 plugin 里，
+用 `/plugin` 浏览 `agent-brain` marketplace 按需安装。
+
+仓库有新提交后，运行 `/plugin marketplace update agent-brain` 再 `/reload-plugins` 获取更新；
+也可以在 `/plugin` 的 Marketplaces 里为 agent-brain 打开自动更新。
+
+### 4. 初始化 Wiki
 
 ```
-/init-wiki
+/wiki-admin:init-wiki
 ```
 
 会创建根页面「LLM Wiki 系统」、5 个数据库（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）、
 Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页面。结构定义见
-[.claude/skills/init-wiki/references/schema.md](.claude/skills/init-wiki/references/schema.md)。
+[schema.md](plugins/wiki-admin/skills/init-wiki/references/schema.md)。
+
+想先试用，可以说"建一个测试 Wiki"，它会用标题「LLM Wiki 系统（测试）」另建一套。
+其他命令按根页面标题找到 Wiki，所以不要在 Notion 里改这个标题。
+
+### 5. 入库材料
+
+在 Sources 数据库添加材料（状态设为「待处理」），然后运行 `/wiki-admin:ingest`。
+它会先列出拟创建的 Wiki 页面，你确认后才写入 Notion。
 
 ## 项目结构
 
 ```
 agent-brain/
-├── .claude/skills/        # 系统命令（Claude Code skill）
-│   └── init-wiki/
+├── .claude-plugin/
+│   └── marketplace.json  # marketplace 目录
+├── plugins/
+│   ├── wiki-admin/       # 维护 Wiki 的命令
+│   └── <领域>/            # 从 Wiki 生成的专业 skill（/sync-skills 生成）
 ├── docs/
 │   ├── adr/              # 架构决策记录
 │   └── agents/           # agent-toolkit 配置

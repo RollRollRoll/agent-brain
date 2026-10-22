@@ -11,6 +11,9 @@ related_adrs:
   - docs/adr/0003-agent-failure-feedback.md
   - docs/adr/0004-conflict-resolution-mechanism.md
   - docs/adr/0006-hosted-notion-mcp.md
+  - docs/adr/0007-wiki-pages-in-wiki-index.md
+  - docs/adr/0008-locate-wiki-by-notion.md
+  - docs/adr/0009-repo-as-plugin-marketplace.md
 last_updated: 2026-10-22
 ```
 
@@ -99,7 +102,8 @@ last_updated: 2026-10-22
 - 必须通过 Notion 官方 MCP server 访问 Notion（https://mcp.notion.com/mcp）
 - 必须使用 Claude Code 作为 LLM 和 Agent 运行环境
 - Skill 必须符合 Claude Code skill 规范（SKILL.md + frontmatter）
-- Skill 仓库必须是 `git@github.com:RollRollRoll/agent-brain.git`
+- Skill 仓库必须是 `git@github.com:RollRollRoll/agent-brain.git`，以 plugin marketplace 形式发布（ADR 0009）
+- 系统命令放在 `plugins/wiki-admin/`，调用时带前缀，如 `/wiki-admin:ingest`
 
 **访问约束**（ADR 0006）：
 - 通过托管 MCP 访问，OAuth 登录，以用户本人的 Notion 权限操作
@@ -308,9 +312,11 @@ last_updated: 2026-10-22
 
 ---
 
-#### REQ-005：同步 Wiki 到本地 Skill 仓库
+#### REQ-005：同步 Wiki 到 agent-brain plugin marketplace
 
-系统 MUST 能够扫描 Notion Wiki 的 techniques/ 分类，识别可执行技能，生成符合 Claude Code skill 规范的文件，并提交到 GitHub 仓库。
+系统 MUST 能够读取 Wiki Index 中分类为 techniques 的页面，识别可执行技能，生成符合 Claude Code skill 规范的文件，
+按领域放进 agent-brain 仓库的 `plugins/<领域>/skills/` 下（新领域同时在 `.claude-plugin/marketplace.json` 加条目），
+并提交、推送到 GitHub。用户添加 `agent-brain` marketplace 后即可安装使用（ADR 0009）。
 
 ##### SCN-005-A：首次同步
 
@@ -322,7 +328,7 @@ last_updated: 2026-10-22
 - AND 识别可执行技能（有步骤、工具、前置条件）
 - AND 对比本地 `agent-brain` 仓库，检测新增/修改/删除
 - AND 生成符合 Claude Code skill 规范的 SKILL.md 文件
-- AND 保存到对应的领域目录（如 `video-production/jump-cut/SKILL.md`）
+- AND 保存到对应领域 plugin 的目录（如 `plugins/video-production/skills/jump-cut/SKILL.md`）
 - AND 更新 `sync-metadata.json`（记录同步时间、Notion 页面 ID、skill 路径）
 - AND 提交到 Git 并推送到 GitHub
 
@@ -818,7 +824,8 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | **Agent Tasks Database** | Data | Add | 字段：任务名、使用的 Skill、执行时间、状态（成功/失败）、结果摘要、失败原因、反馈/问题 | REQ-006, REQ-008 |
 | **Wiki Changelog Database** | Data | Add | 字段：Wiki 页面（关联 Wiki Index）、变更时间、来源材料（关联 Sources）、变更类型（新建/更新/冲突解决）、详情 | REQ-007 |
 | **Conflicts Database** | Data | Add | 字段：Wiki 页面、冲突类型、新材料、原有内容摘要、新内容摘要、证据链接、证据强度评分、状态（待审核/已解决）、解决方案 | REQ-003, REQ-007 |
-| **Wiki 层级页面** | Data | Add | 结构：concepts/, techniques/, tools/，每个页面包含标题、内容（Markdown）、双向链接 | REQ-001, REQ-002 |
+| **Wiki 页面** | Data | Add | 即 Wiki Index 条目：正文为页面内容（Markdown），相关页面用页面提及链接；concepts/、techniques/、tools/ 分类页面只放按「分类」筛选的视图（ADR 0007） | REQ-001, REQ-002 |
+| **Wiki 定位** | Contract | Add | 不保存本地配置。skill 每次运行时按根页面标题精确搜索（正式「LLM Wiki 系统」，测试「LLM Wiki 系统（测试）」），从根页面内容读出各数据库 URL、data source ID 和分类页面；找到多个时问用户，找不到时提示先运行 `/init-wiki`（ADR 0008） | REQ-001 ~ REQ-008 |
 | **sync-metadata.json** | Data | Add | 格式：{ "last_sync": "ISO timestamp", "skills": [{ "notion_page_id": "", "skill_path": "", "last_sync": "" }] } | REQ-005 |
 | **Notion MCP 工具** | API | Use | 由 agent 在会话中调用，见下方契约 | 所有 Notion 操作 |
 | **Claude Code Skill Format** | API | Use | 输入：SKILL.md 文件（frontmatter + 正文）；输出：skill 可被 Skill() 工具加载 | REQ-005, REQ-006 |

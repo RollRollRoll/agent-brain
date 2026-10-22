@@ -24,6 +24,10 @@ domain: 知识管理与 Agent 技能库
 
 **特征**：可变，LLM 负责维护一致性和时效性。
 
+### Wiki 页面
+Wiki 中的一个知识点，就是 Wiki Index 数据库的一条记录：正文是条目页面的内容，分类、领域标签、简短摘要、来源材料是条目属性（ADR 0007）。
+concepts/、techniques/、tools/ 分类页面只是按「分类」筛选的视图，不是 Wiki 页面的存放位置。
+
 ### Skill
 从 Wiki 的 Techniques 中提炼出的可执行技能，格式符合 Claude Code skill 规范。
 
@@ -112,7 +116,7 @@ domain: 知识管理与 Agent 技能库
 - **格式**：页面内容以 Markdown 读写（`notion-fetch` / `notion-create-pages` / `notion-update-page`）
 
 ### Git / GitHub
-- **职责**：版本控制 Skill 仓库（`git@github.com:RollRollRoll/agent-brain.git`）
+- **职责**：版本控制 Skill 仓库（`git@github.com:RollRollRoll/agent-brain.git`），仓库本身是名为 `agent-brain` 的 plugin marketplace（ADR 0009）
 - **内容**：Claude Code skill 文件、系统管理 skill（如 `/init-wiki`、`/ingest`）
 - **可见性**：待定（公开或私有）
 

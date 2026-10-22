@@ -23,8 +23,14 @@
 │   ├── 0003-agent-failure-feedback.md
 │   ├── 0004-conflict-resolution-mechanism.md
 │   ├── 0005-notion-api-2026-03-11.md（已被 0006 取代）
-│   └── 0006-hosted-notion-mcp.md
-└── .claude/skills/
+│   ├── 0006-hosted-notion-mcp.md
+│   ├── 0007-wiki-pages-in-wiki-index.md
+│   ├── 0008-locate-wiki-by-notion.md
+│   └── 0009-repo-as-plugin-marketplace.md
+├── .claude-plugin/marketplace.json
+└── plugins/
+    ├── wiki-admin/          # 系统命令
+    └── <领域>/              # /sync-skills 生成的专业 skill
 ```
 
 ## 使用术语表里的词汇

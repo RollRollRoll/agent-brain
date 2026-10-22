@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "agent-brain",
+  "description": "个人 LLM Wiki 的维护命令，以及从 Wiki 中提炼出的各领域专业 skill",
+  "owner": {
+    "name": "RollRollRoll"
+  },
+  "plugins": [
+    {
+      "name": "wiki-admin",
+      "source": "./plugins/wiki-admin",
+      "description": "维护 Notion 上的 LLM Wiki：初始化结构、入库原始材料、整理检查、把 Wiki 中的方法同步成 skill",
+      "category": "productivity"
+    }
+  ]
+}

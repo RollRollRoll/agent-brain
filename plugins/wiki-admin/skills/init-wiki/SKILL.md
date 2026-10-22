@@ -1,6 +1,6 @@
 ---
 name: init-wiki
-description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据库、视图、3 个分类页面）。用户要求初始化或重建 Wiki 时使用。
+description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据库、视图、3 个分类页面），也可建测试 Wiki。用户要求初始化或重建 Wiki 时使用。
 ---
 
 # init-wiki
@@ -22,15 +22,18 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 
 1. **确认连接**：调用 `notion-get-self`，记下 workspace 名称和用户名。
 
-2. **确定位置**：用户指定了父页面时，根页面建在它下面；没指定时，不传 parent，建成用户的私有页面。
+2. **确定标题和位置**：根页面标题按 [定位 Wiki](../../references/locate-wiki.md) 中的规则选：
+   正式 Wiki 用 `LLM Wiki 系统`，用户要建测试 Wiki 时用 `LLM Wiki 系统（测试）`。
+   用户指定了父页面时，根页面建在它下面；没指定时，不传 parent，建成用户的私有页面。
 
-3. **检查是否已存在**：用 `notion-search` 搜索 `LLM Wiki 系统`。只有标题完全一致、且不在回收站里的页面才算已存在。
+3. **检查是否已存在**：用 `notion-search` 搜索这个标题。只有标题完全一致、且不在回收站里的页面才算已存在。
    - 已存在时，**停下来问用户**：「Wiki 结构已存在（附链接），是否覆盖？覆盖会把旧结构移入 Notion 回收站，
      可以在 Notion 里恢复，但 MCP 目前不能恢复顶层页面。」
    - 用户明确回答「是 / 确认 / 继续」后，才用 `notion-delete-pages` 移走旧根页面，`user_confirmed` 设为 `true`。
    - 用户没有明确同意时，结束，不做任何修改。
 
-4. **建根页面**：用 `notion-create-pages` 创建 `LLM Wiki 系统`，内容写一句「Agent Brain 知识库根页面，由 /init-wiki 创建。」
+4. **建根页面**：用 `notion-create-pages` 按第 2 步的标题创建根页面，内容写一句「Agent Brain 知识库根页面，由 /init-wiki 创建。」
+   不要改这个标题：其他 skill 靠它定位 Wiki。
 
 5. **建数据库**：在根页面下用 `notion-create-database`，按 schema.md 的顺序逐个创建。
    `schema` 参数用 SQL DDL，例如（2026-10-22 实测可用）：
@@ -57,6 +60,9 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
    单个视图失败时记下错误，继续往下，不回滚已建好的结构。
 
 7. **建分类页面**：在根页面下用 `notion-create-pages` 一次创建 `concepts/`、`techniques/`、`tools/`。
+   然后按 schema.md 的分类页面视图表，在每个分类页面里用 `notion-create-view` 建 Wiki Index 的 Gallery 视图：
+   传 `parent_page_id`（分类页面）和 Wiki Index 的 `data_source_id`，不传 `database_id`；
+   `show_data_source_title` 设为 `false`；`configure` 例如 `FILTER "分类" = "concepts"; SHOW "领域标签", "简短摘要"`。
 
 8. **核对**：用 `notion-fetch` 读一遍每个数据库，确认字段名、类型、select 选项、relation 目标都和 schema.md 一致。
    发现不一致就用 `notion-update-data-source` 修正。注意：更新 select 选项时必须列出全部选项，漏掉的选项会被删除。

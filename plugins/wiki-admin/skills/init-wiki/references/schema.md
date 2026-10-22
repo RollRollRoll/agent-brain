@@ -6,6 +6,8 @@
 
 - 根页面标题：`LLM Wiki 系统`
 - 分类页面（建在根页面下）：`concepts/`、`techniques/`、`tools/`
+- Wiki 页面本身就是 Wiki Index 的条目（ADR 0007）。分类页面不存放内容，
+  只放一个 Wiki Index 的 Gallery 视图，按「分类」筛选出对应条目
 
 ## 数据库
 
@@ -80,3 +82,11 @@
 |---|---|---|---|
 | Sources | 按状态 | board | 按「状态」分组 |
 | Wiki Index | 知识卡片 | gallery | 卡片显示「分类」「领域标签」「简短摘要」 |
+
+分类页面里的视图（Wiki Index 的 linked view，不显示数据源标题）：
+
+| 分类页面 | 视图名 | 类型 | 配置 |
+|---|---|---|---|
+| concepts/ | concepts | gallery | 筛选「分类」= concepts；卡片显示「领域标签」「简短摘要」 |
+| techniques/ | techniques | gallery | 筛选「分类」= techniques；卡片显示「领域标签」「简短摘要」 |
+| tools/ | tools | gallery | 筛选「分类」= tools；卡片显示「领域标签」「简短摘要」 |

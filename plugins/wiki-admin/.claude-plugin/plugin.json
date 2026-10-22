@@ -1,0 +1,10 @@
+{
+  "name": "wiki-admin",
+  "description": "维护 Notion 上的 LLM Wiki：初始化结构、入库原始材料、整理检查、把 Wiki 中的方法同步成 skill",
+  "author": {
+    "name": "RollRollRoll"
+  },
+  "repository": "https://github.com/RollRollRoll/agent-brain",
+  "license": "Apache-2.0",
+  "keywords": ["notion", "llm-wiki", "knowledge-base"]
+}
