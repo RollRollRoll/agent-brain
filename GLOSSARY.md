@@ -108,8 +108,8 @@ domain: 知识管理与 Agent 技能库
 
 ### Notion
 - **职责**：存储 Wiki 和元数据（原始材料清单、冲突记录、变更日志、任务记录）
-- **访问方式**：Notion 官方 MCP server（通过 Claude Code）
-- **格式**：支持 Markdown 读写（`retrieve-page-markdown` / `update-page-markdown`）
+- **访问方式**：托管 Notion MCP（`https://mcp.notion.com/mcp`），OAuth 登录，以用户本人权限操作（ADR 0006）
+- **格式**：页面内容以 Markdown 读写（`notion-fetch` / `notion-create-pages` / `notion-update-page`）
 
 ### Git / GitHub
 - **职责**：版本控制 Skill 仓库（`git@github.com:RollRollRoll/agent-brain.git`）
@@ -118,11 +118,11 @@ domain: 知识管理与 Agent 技能库
 
 ### Claude Code
 - **职责**：运行 LLM 和 Agent，连接 Notion（通过 MCP）和本地文件系统
-- **配置**：`~/.claude/settings.json` 中配置 Notion MCP server
+- **配置**：`claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录
 
 ## 相关链接
 
 - Karpathy LLM Wiki 模式：https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 - Obsidian AI 橙皮书：https://github.com/alchaincyf/obsidian-ai-orange-book
-- Notion MCP 文档：https://developers.notion.com/docs/mcp
+- Notion MCP 文档：https://developers.notion.com/guides/mcp/get-started-with-mcp
 - Skill 仓库：git@github.com:RollRollRoll/agent-brain.git

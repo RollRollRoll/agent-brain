@@ -26,8 +26,8 @@
    - 需要符合 `SKILL.md` + frontmatter 规范
    - 直接存 Notion 无法被 `Skill()` 工具识别
 2. **Agent 执行需要速度**：
-   - 本地文件访问比 Notion API 调用快 10 倍以上
-   - 不受 Notion API 速率限制（每秒 3 次）
+   - 本地文件由 Claude Code 直接加载，不需要网络往返
+   - 不占用 Notion API 请求配额
 3. **版本控制和测试**：
    - Git 提供完整的版本历史和回滚能力
    - 可以为每个 skill 编写测试

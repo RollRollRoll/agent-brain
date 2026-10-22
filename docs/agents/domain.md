@@ -22,8 +22,9 @@
 │   ├── 0002-skills-in-git-not-notion.md
 │   ├── 0003-agent-failure-feedback.md
 │   ├── 0004-conflict-resolution-mechanism.md
-│   └── 0005-notion-api-2026-03-11.md
-└── src/
+│   ├── 0005-notion-api-2026-03-11.md（已被 0006 取代）
+│   └── 0006-hosted-notion-mcp.md
+└── .claude/skills/
 ```
 
 ## 使用术语表里的词汇

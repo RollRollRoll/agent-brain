@@ -31,18 +31,17 @@ Karpathy 的 LLM Wiki 模式和橙皮书推荐的实现都基于本地 Markdown 
 ### 优势
 - 用户浏览体验更好（数据库视图、卡片展示）
 - 可以利用 Notion 的协作功能（如果将来需要）
-- Notion Markdown 支持让 LLM 可以高效读写（`retrieve-page-markdown` / `update-page-markdown`）
+- 托管 Notion MCP 以 Markdown 读写页面内容，LLM 可以直接处理
 
 ### 代价
-- **需要配置 MCP server**：增加初始配置复杂度（需要创建 Integration、配置 token）
-- **受 API 速率限制**：每秒 3 次请求，批量操作需要控制频率
-- **需要手动授权页面**：Integration 无法动态发现新页面，每个顶层页面需要手动授权
-- **无法离线使用**：依赖网络和 Notion API 可用性
+- **需要安装并登录 MCP**：一次性运行 `claude mcp add` 和 `/mcp` OAuth 登录（ADR 0006）
+- **受 Notion API 请求限制**：MCP 的每次工具调用都计入配额，批量操作可能遇到 `rate_limited`
+- **只能在 Claude 会话中访问**：MCP 工具无法被脚本直接调用
+- **无法离线使用**：依赖网络和 Notion 服务可用性
 
 ### 缓解措施
-- Agent 执行时使用本地 Skill（不走 Notion API），Notion 只用于知识维护和浏览
-- 批量操作时实现请求队列和速率控制
-- 初始化时一次性授权顶层页面，子页面自动继承权限
+- Agent 执行时使用本地 Skill（不走 Notion），Notion 只用于知识维护和浏览
+- 收到 `rate_limited` 时按 `retry_after_seconds` 等待后重试
 
 ## 替代方案
 

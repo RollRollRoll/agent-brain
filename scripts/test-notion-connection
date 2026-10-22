@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-"""":
-# Bash 部分：直接执行 Python 脚本
-exec python3 "$(dirname "$0")/../.claude/skills/test-notion-connection/test_connection.py" "$@"
-"""

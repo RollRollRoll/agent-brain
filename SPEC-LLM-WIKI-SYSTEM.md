@@ -10,7 +10,8 @@ related_adrs:
   - docs/adr/0002-skills-in-git-not-notion.md
   - docs/adr/0003-agent-failure-feedback.md
   - docs/adr/0004-conflict-resolution-mechanism.md
-last_updated: 2026-10-21
+  - docs/adr/0006-hosted-notion-mcp.md
+last_updated: 2026-10-22
 ```
 
 ---
@@ -100,18 +101,17 @@ last_updated: 2026-10-21
 - Skill 必须符合 Claude Code skill 规范（SKILL.md + frontmatter）
 - Skill 仓库必须是 `git@github.com:RollRollRoll/agent-brain.git`
 
-**API 约束**：
-- Notion API 速率限制：每秒 3 次请求
-- Notion API 需要手动授权每个顶层页面
-- 批量操作需要实现请求队列和速率控制
+**访问约束**（ADR 0006）：
+- 通过托管 MCP 访问，OAuth 登录，以用户本人的 Notion 权限操作
+- 所有 Notion 操作由 agent 在 Claude 会话中调用 `notion-*` 工具完成，仓库中不包含 Notion 客户端代码
+- MCP 的每次工具调用都计入 Notion API 请求配额
 
 **兼容性约束**：
 - 必须遵守 GLOSSARY.md 中定义的术语
-- 必须遵守 ADR 0001-0004 中的技术决策
+- 必须遵守 ADR 0001-0004、0006 中的技术决策
 
 **安全约束**：
-- Notion Integration token 不得提交到 Git 仓库
-- 必须使用 .env 文件存储 token，并配置 .gitignore
+- 仓库中不得出现任何 Notion 凭据（OAuth 凭据由 Claude Code 保管）
 
 ### 1.7 Change Summary
 
@@ -134,8 +134,7 @@ last_updated: 2026-10-21
 
 ##### SCN-001-A：首次初始化
 
-- GIVEN 用户已创建 Notion Integration 并授权顶层页面
-- AND 用户已配置 Claude Code MCP
+- GIVEN 用户已安装托管 Notion MCP 并通过 `/mcp` 完成 OAuth 登录
 - WHEN 用户运行 `/init-wiki` 命令
 - THEN 系统在 Notion 中创建以下结构：
   - 1 个顶层页面"LLM Wiki 系统"
@@ -463,22 +462,22 @@ last_updated: 2026-10-21
 - 用户或外部系统层面：运行 `/sync-skills` 时，如果本地 skill 被修改，系统提示冲突而不是覆盖
 - 代码层面：同步逻辑中存在"检测本地修改时间"的步骤
 
-#### NEG-003：禁止泄露 Notion Token
+#### NEG-003：禁止在仓库中存放 Notion 凭据
 
-系统 MUST NOT 将 Notion Integration token 提交到 Git 仓库或输出到终端日志。
-
-验证：
-- `.gitignore` 文件包含 `.env`
-- `settings.json` 中的 token 通过环境变量引用，不是硬编码
-- 系统日志中不包含 `ntn_` 开头的字符串
-
-#### NEG-004：禁止超速率请求 Notion API
-
-系统 MUST NOT 在短时间内向 Notion API 发送超过速率限制（每秒 3 次）的请求。
+系统 MUST NOT 在 Git 仓库中包含 Notion 凭据（token、OAuth 凭据、`.env`）。
 
 验证：
-- 批量操作（如入库多个材料、lint 扫描所有页面）时，系统日志显示"等待速率限制"的消息
-- 代码层面：存在请求队列或 rate limiter 实现
+- 用户层面：按 README 完成安装和登录，全程不需要复制或粘贴任何 token
+- 仓库层面：`git grep -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md'` 无结果（排除本 spec，因为它自己写着这个模式）；`.gitignore` 包含 `.env`
+
+#### NEG-004：遇到限流时不得放弃或连续重试
+
+收到 MCP 的 `rate_limited` 时，系统 MUST NOT 立即重试或静默跳过；必须按 `retry_after_seconds` 等待后重试一次，
+再次失败就停下来，向用户报告已完成的部分和失败原因。
+
+验证：
+- skill 层面：每个调用 `notion-*` 的 SKILL.md 都写有上述限流处理步骤
+- 运行层面：批量操作（如 lint 扫描全部页面）中触发限流时，agent 的汇报里有等待和重试记录
 
 ---
 
@@ -530,14 +529,13 @@ Agent MUST 在 10 秒内加载并开始执行本地 skill（不包括 skill 本�
 - GitHub：存储 skill 仓库
 
 **外部依赖**：
-- Notion 官方 MCP server（`@notionhq/notion-mcp-server`）
-- Notion API（https://api.notion.com）
+- 托管 Notion MCP（`https://mcp.notion.com/mcp`，ADR 0006）
 - GitHub（通过 Git SSH）
 - Claude Code skill 规范
 
 **部署和运行边界**：
 - 本地运行：用户的 macOS 系统（Darwin 27.0.0）
-- 需要网络访问 Notion API 和 GitHub
+- 需要网络访问 Notion MCP 和 GitHub
 
 **主要领域上下文及关系**：
 - 知识管理上下文：原始材料 → Wiki（concepts/techniques/tools）
@@ -712,41 +710,43 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 ---
 
-#### DEC-005：Notion API 速率控制
+#### DEC-005：通过托管 Notion MCP 访问，系统命令由 skill 驱动
 
 **Selected**
 
-使用 **请求队列 + Token Bucket 算法**：
-- 维护一个请求队列
-- 每秒最多放行 3 个请求（Notion 速率限制）
-- 批量操作（如 lint 扫描所有页面）自动入队
+- 用 `claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp` 安装托管 MCP，`/mcp` 完成 OAuth 登录
+- 系统命令写成 SKILL.md 中的操作步骤，由 agent 调用 `notion-*` 工具执行
+- 限流由 MCP 服务端处理：等待 ≤ 2 秒时自动重试一次，否则返回 `rate_limited` 和 `retry_after_seconds`，skill 按 NEG-004 处理
 
 **Alternatives**
 
-- 方案 A：不做速率控制，触发 429 错误后重试
-- 方案 B：每次请求后固定 sleep 0.34 秒
+- 方案 A：Python 直接调用 REST API，integration token 存 `.env`，客户端自己做速率控制（#2、#3 第一版实现）
+- 方案 B：MCP 与 REST 混用
 
 **Trade-off**
 
 | Dimension | Selected | Alternative A | Alternative B |
 |---|---|---|---|
-| 可靠性 | 高 | 低（频繁重试） | 高 |
-| 性能 | 优（动态调整） | 差（重试延迟） | 一般（固定延迟） |
-| 实现复杂度 | 中 | 低 | 低 |
+| 符合约束 | 符合 §1.6 | 不符合 | 部分符合 |
+| 凭据管理 | 无（OAuth） | 需要管理 token | 两套 |
+| 权限 | 用户本人权限 | 需逐个授权页面 | 两套 |
+| 执行确定性 | 较低（agent 按步骤执行） | 高（代码） | 混合 |
+| 可测试性 | 真实运行 skill 验证 | mock 单元测试 | 两种都要 |
+| 维护成本 | 低（API 版本由服务端处理） | 需跟随 API 升级 | 最高 |
 
 **Rationale**
 
-- 方案 A 触发 429 后需要等待，总时间更长
-- 方案 B 在请求量低时也强制延迟，浪费时间
-- Token Bucket 可以在允许范围内尽快完成请求
+- 需求访谈 Q6 选定了托管 MCP，§1.6 也写为硬约束
+- 需求里没有脱离 Claude 会话运行的场景，代码带来的确定性优势用不上
+- 执行确定性的不足靠 skill 中的核对步骤弥补（建完用 `notion-fetch` 回读核对）
 
 **Supports**
 
-- NEG-004, QOS-001, QOS-002
+- REQ-001 ~ REQ-008, NEG-003, NEG-004
 
 **ADR**
 
-- ADR 0001（Notion API 约束）
+- ADR 0006（取代 ADR 0005）
 
 ---
 
@@ -754,14 +754,14 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 | Component | Change | Responsibility | Depends On | Supports |
 |---|---|---|---|---|
-| **Notion MCP Client** | Add | 封装 Notion MCP 调用，处理速率限制、错误重试 | Notion MCP server | 所有 Notion 操作 |
-| **Ingest Engine** | Add | 读取原始材料，提炼知识，检测冲突，建议更新 | Notion MCP Client, Conflict Detector | REQ-002 |
-| **Conflict Detector** | Add | 检测知识冲突，分类，查证证据，创建 Conflict 记录 | Notion MCP Client, web_search | REQ-003 |
-| **Wiki Manager** | Add | 维护 Wiki 结构，建立双向链接，记录 Changelog | Notion MCP Client | REQ-001, REQ-002, REQ-007 |
-| **Lint Engine** | Add | 扫描 Wiki，检测矛盾/过时/缺失链接/孤岛页面 | Notion MCP Client | REQ-004 |
-| **Skill Sync Engine** | Add | 扫描 Notion techniques，生成 Claude Code skill 文件，检测冲突，提交 Git | Notion MCP Client, Git Client | REQ-005 |
-| **Agent Task Logger** | Add | 记录 Agent 执行结果到 Notion Agent Tasks 数据库 | Notion MCP Client | REQ-006 |
-| **Failure Analyzer** | Add | 分析失败记录，识别失败类型，建议修复方案 | Notion MCP Client | REQ-008 |
+| **托管 Notion MCP** | Use | 提供 `notion-*` 工具读写 Notion；OAuth 认证；服务端处理限流 | Notion | 所有 Notion 操作 |
+| **Ingest Engine** | Add | 读取原始材料，提炼知识，检测冲突，建议更新 | Notion MCP, Conflict Detector | REQ-002 |
+| **Conflict Detector** | Add | 检测知识冲突，分类，查证证据，创建 Conflict 记录 | Notion MCP, web_search | REQ-003 |
+| **Wiki Manager** | Add | 维护 Wiki 结构，建立双向链接，记录 Changelog | Notion MCP | REQ-001, REQ-002, REQ-007 |
+| **Lint Engine** | Add | 扫描 Wiki，检测矛盾/过时/缺失链接/孤岛页面 | Notion MCP | REQ-004 |
+| **Skill Sync Engine** | Add | 扫描 Notion techniques，生成 Claude Code skill 文件，检测冲突，提交 Git | Notion MCP, Git Client | REQ-005 |
+| **Agent Task Logger** | Add | 记录 Agent 执行结果到 Notion Agent Tasks 数据库 | Notion MCP | REQ-006 |
+| **Failure Analyzer** | Add | 分析失败记录，识别失败类型，建议修复方案 | Notion MCP | REQ-008 |
 | **System Commands** | Add | 7 个 Claude Code skill（/init-wiki, /ingest, /sync-skills, /lint-wiki, /resolve-conflict, /test-skill, /verify-system） | 上述所有组件 | 所有 REQ |
 
 **主要数据流**：
@@ -820,20 +820,21 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | **Conflicts Database** | Data | Add | 字段：Wiki 页面、冲突类型、新材料、原有内容摘要、新内容摘要、证据链接、证据强度评分、状态（待审核/已解决）、解决方案 | REQ-003, REQ-007 |
 | **Wiki 层级页面** | Data | Add | 结构：concepts/, techniques/, tools/，每个页面包含标题、内容（Markdown）、双向链接 | REQ-001, REQ-002 |
 | **sync-metadata.json** | Data | Add | 格式：{ "last_sync": "ISO timestamp", "skills": [{ "notion_page_id": "", "skill_path": "", "last_sync": "" }] } | REQ-005 |
-| **Notion MCP API** | API | Use | 输入：page_id 或 database_id 或 search_query；输出：page content (Markdown) 或 database records；错误：429 (rate limit), 401 (auth), 404 (not found) | 所有 Notion 操作 |
+| **Notion MCP 工具** | API | Use | 由 agent 在会话中调用，见下方契约 | 所有 Notion 操作 |
 | **Claude Code Skill Format** | API | Use | 输入：SKILL.md 文件（frontmatter + 正文）；输出：skill 可被 Skill() 工具加载 | REQ-005, REQ-006 |
 | **Git Push** | API | Use | 输入：commit message；输出：push 成功或失败；错误：认证失败、冲突 | REQ-005 |
 
 **对外接口或跨模块契约**：
 
-**Notion MCP 契约**：
-- 输入：`retrieve-page-markdown(page_id)` → 输出：Markdown 文本
-- 输入：`update-page-markdown(page_id, content)` → 输出：成功或失败
-- 输入：`post-search(query)` → 输出：匹配页面列表
-- 输入：`query-data-source(database_id, filter)` → 输出：记录列表
-- 幂等语义：`update-page-markdown` 重复调用以最后一次为准
-- 速率限制：每秒 3 次请求
-- 权限：需要 Integration 授权顶层页面
+**Notion MCP 契约**（工具清单见 https://developers.notion.com/guides/mcp/mcp-supported-tools）：
+- 读取：`notion-fetch`（页面、数据库、data source `collection://...`、视图）、`notion-search`
+- 页面：`notion-create-pages`（不传 parent 时建私有页面）、`notion-update-page`、`notion-move-pages`
+- 删除：`notion-delete-pages`，必须带 `user_confirmed: true`，只能在用户明确同意后调用；顶层页面目前无法通过 MCP 恢复
+- 数据库：`notion-create-database`（同时建第一个 data source 和默认视图）、`notion-update-data-source`（更新 select 选项时必须列出全部选项，漏掉的会被删除）
+- 视图：`notion-create-view` / `notion-update-view`，配置语法见 MCP 资源 `notion://docs/view-dsl-spec`
+- 查询：`notion-query-data-sources`，rows 模式每次最多 100 行
+- 限流：每次调用计入 Notion API 配额；返回 `rate_limited` 时带 `retry_after_seconds`
+- 权限：以登录用户本人的 Notion 权限操作
 
 **Claude Code Skill 契约**：
 - SKILL.md 必须包含 frontmatter（至少有 `name` 和 `description`）
@@ -846,14 +847,15 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 | Failure | Observable Behavior | Recovery / Degradation | Covered Scenario |
 |---|---|---|---|
-| **Notion API 速率限制（429）** | 操作暂停，显示"等待速率限制"消息 | Token Bucket 自动重试，最多等待 10 秒 | 所有批量操作 |
-| **Notion API 认证失败（401）** | 命令中止，提示"Notion Integration token 无效或过期" | 用户需要重新配置 token | REQ-001, REQ-002 |
-| **Notion 页面不存在（404）** | 跳过该页面，记录警告日志 | 继续处理其他页面 | REQ-004, REQ-005 |
+| **MCP 限流（`rate_limited`）** | agent 汇报等待时长 | 按 `retry_after_seconds` 等待后重试一次；再失败则停止并汇报已完成部分 | NEG-004 |
+| **MCP 未安装或未登录** | `notion-*` 工具不可用，命令中止 | 提示用户运行 `claude mcp add` 和 `/mcp` 登录，必要时重启会话 | REQ-001 ~ REQ-008 |
+| **Notion 页面不存在或无权访问** | 跳过该页面并在汇报中列出 | 继续处理其他页面 | REQ-004, REQ-005 |
+| **批量创建中途失败** | 停止，列出已创建内容和失败原因 | 不自动清理；用户修复后重跑，选择覆盖 | REQ-001 |
 | **LLM 无法分类冲突** | 冲突记录标记为"无法判断"，提示用户手动分类 | 不阻塞入库流程 | SCN-003-E |
 | **Git push 失败（冲突）** | 提示用户"本地仓库有未推送的提交或远程有新提交"，建议先 pull | 用户手动 pull 后重新运行 /sync-skills | REQ-005 |
 | **Skill 生成失败（格式错误）** | 跳过该 skill，记录错误日志，提示用户检查 Notion 页面 | 继续处理其他 skill | REQ-005 |
 | **Agent 执行 skill 失败** | 记录失败到 Agent Tasks 数据库，返回错误给用户 | Failure Analyzer 分析并建议修复 | REQ-006, REQ-008 |
-| **网络不可用** | 命令中止，提示"无法连接 Notion API 或 GitHub" | 用户检查网络后重试 | 所有网络操作 |
+| **网络不可用** | 命令中止，提示无法连接 Notion MCP 或 GitHub | 用户检查网络后重试 | 所有网络操作 |
 
 ---
 
@@ -863,7 +865,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 - **日志**：
   - INFO：命令开始/结束、主要步骤（如"读取 5 条待处理材料"）
-  - WARN：跳过的页面、检测到的冲突、速率限制等待
+  - WARN：跳过的页面、检测到的冲突、限流等待
   - ERROR：API 失败、Git 失败、格式错误
 - **指标**（可选，后续优化）：
   - 入库材料数量、冲突数量、同步 skill 数量、Agent 任务成功/失败数
@@ -876,24 +878,23 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 #### Security
 
-- **认证**：Notion Integration token（存储在 `.env` 文件，不提交 Git）
-- **授权**：Integration 需要手动授权顶层页面
-- **敏感数据**：Notion token 不得输出到日志或终端
+- **认证**：托管 MCP 的 OAuth 登录，凭据由 Claude Code 保管，仓库中没有凭据（NEG-003）
+- **授权**：以登录用户本人的 Notion 权限操作；删除类操作必须先得到用户明确同意
+- **敏感数据**：不在仓库、skill 输出或提交信息中记录凭据
 - **审计**：Wiki Changelog 和 Agent Tasks 记录所有操作和时间戳
 
 #### Performance
 
 - **延迟预算**：
-  - 单次 Notion API 调用 < 2 秒
   - 单个材料入库 < 30 秒（QOS-001）
   - 50 个 skill 同步 < 5 分钟（QOS-002）
 - **吞吐预算**：
-  - Notion API 每秒 3 次请求（硬约束）
+  - 受 Notion API 请求配额限制，具体额度由 Notion 按套餐决定
 - **容量假设**：
   - Wiki 页面数 < 10000（Notion 单个 workspace 限制）
   - Skill 数量 < 500（假设每个领域 < 100 个技能）
 - **性能退化边界**：
-  - 超过 100 个待处理材料时，入库操作可能超过 1 小时（受速率限制）
+  - 待处理材料很多时，入库可能多次触发 `rate_limited`，总耗时随 Notion 套餐的请求额度变化
 
 ---
 
@@ -903,16 +904,17 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 - 测试外部可观察行为（Notion 数据库记录、本地 skill 文件、Agent 执行结果），不绑定内部实现
 - 优先用集成测试验证完整流程（E2E），单元测试只用于复杂逻辑（如冲突分类算法）
-- 使用真实的 Notion MCP 和 Git，但在隔离的测试环境（test Notion workspace, test Git branch）
+- 涉及 Notion 的行为，在真实 Notion 中运行 skill 验证（DEC-005）：在用户指定的测试页面下执行，不碰正式 Wiki
+- 纯逻辑（如冲突分类、skill 生成）可以写成代码并做单元测试，但不直接调用 Notion
 - 每个 REQ 的每个场景（SCN）都有对应的验证项（VAL）
 - 负向需求（NEG）有独立的负向验证
-- 测试后自动清理测试数据（删除测试页面、回滚 Git）
+- 验证结束后，测试数据经用户确认再移入回收站
 
 ### 4.2 Test Seams
 
 | Seam | Level | Reason | Prior Art | Covers |
 |---|---|---|---|---|
-| **Notion MCP 集成测试** | Integration | 验证通过 MCP 读写 Notion 的核心能力（创建页面、更新内容、查询数据库）；这是系统的最外层接口 | Claude Code MCP 测试模式（参考 `mcp` plugin 测试） | REQ-001 ~ REQ-007 |
+| **Skill 真实运行** | Integration | 在测试页面下运行系统命令 skill，用 `notion-fetch` 回读检查结果；skill 是系统的最外层接口 | `test-skill`（agent-toolkit） | REQ-001 ~ REQ-007 |
 | **冲突检测单元测试** | Unit | 验证五类冲突的识别逻辑（规则匹配 + LLM 分类）；这是高组合复杂度的纯逻辑 | 无（新功能） | REQ-003, SCN-003-A ~ SCN-003-E |
 | **Skill 生成组件测试** | Component | 验证从 Notion technique 页面生成符合 Claude Code 规范的 SKILL.md 文件 | Claude Code skill 格式验证（参考 `skill-creator` skill） | REQ-005, SCN-005-A |
 | **端到端工作流测试** | E2E | 验证完整流程：添加材料 → 入库 → 生成 skill → agent 执行 → 反馈；这是最高可用的 seam | 无（新系统） | 所有 REQ 的主场景 |
@@ -922,7 +924,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 | Verification | Requirement / Scenario | Method | Expected Result |
 |---|---|---|---|
-| **VAL-001** | REQ-001, SCN-001-A | 自动测试：在测试 Notion workspace 运行 `/init-wiki`，检查创建的数据库和页面 | 5 个数据库存在，字段正确；3 个 Wiki 分类页面存在 |
+| **VAL-001** | REQ-001, SCN-001-A, SCN-001-B | 真实运行：在测试页面下运行 `/init-wiki`，用 `notion-fetch` 回读；再运行一次 | 5 个数据库字段、选项、relation 与 schema.md 一致；Board/Gallery 视图存在；3 个分类页面存在；第二次运行提示"是否覆盖？"且未做修改 |
 | **VAL-002** | REQ-002, SCN-002-A | 自动测试：添加测试材料到 Sources，运行 `/ingest`，检查 Wiki 页面和 Changelog | Wiki 页面包含提炼的知识；Changelog 有记录 |
 | **VAL-003** | REQ-003, SCN-003-A | 单元测试：模拟事实性冲突输入，验证 LLM 分类为"事实性"并查证证据 | 冲突类型=事实性；证据链接非空 |
 | **VAL-004** | REQ-003, SCN-003-B | 单元测试：模拟观点性冲突，验证分类为"观点性"且不查证 | 冲突类型=观点性；推荐方案="两者都保留" |
@@ -935,8 +937,8 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | **VAL-011** | REQ-008, SCN-008-A | 自动测试：创建失败记录（工具路径错误），运行 Failure Analyzer，检查建议 | 失败类型=工具路径错误；建议包含"检查路径" |
 | **VAL-012** | NEG-001 | 负向测试：触发冲突但不确认，检查 Wiki 未变化 | Conflicts 数据库有记录，状态=待审核；Wiki 内容未变 |
 | **VAL-013** | NEG-002 | 负向测试：手动修改本地 skill 后同步，检查未覆盖 | 系统提示冲突；本地 skill 内容未变 |
-| **VAL-014** | NEG-003 | 静态检查：检查 .gitignore 包含 .env；检查代码中 token 通过环境变量引用 | .gitignore 正确；无硬编码 token |
-| **VAL-015** | NEG-004 | 性能测试：批量操作时监控 API 请求频率 | 每秒请求数 <= 3 |
+| **VAL-014** | NEG-003 | 静态检查：运行 §4.5 的命令 | 无匹配；`.gitignore` 包含 `.env` |
+| **VAL-015** | NEG-004 | 检查：每个调用 `notion-*` 的 SKILL.md 都写有限流处理步骤 | 所有相关 skill 都包含按 `retry_after_seconds` 等待、重试一次、失败即停的步骤 |
 | **VAL-016** | QOS-001 | 性能测试：入库 3000 字文章，记录时间 | 时间 < 30 秒 |
 | **VAL-017** | QOS-002 | 性能测试：同步 50 个 technique，记录时间 | 时间 < 5 分钟 |
 | **VAL-018** | QOS-003 | 性能测试：Agent 加载 skill，记录时间 | 时间 < 10 秒 |
@@ -946,7 +948,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 
 | Requirement | Design Location | Verification | Status |
 |---|---|---|---|
-| REQ-001 | §3.3 Wiki Manager, §3.4 Notion databases | VAL-001 | Covered |
+| REQ-001 | `/init-wiki` skill, `references/schema.md`, DEC-005 | VAL-001 | Covered |
 | REQ-002 | §3.3 Ingest Engine, Wiki Manager | VAL-002 | Covered |
 | REQ-003 | §3.3 Conflict Detector, §3.4 Conflicts Database, DEC-002 | VAL-003, VAL-004 | Covered |
 | REQ-004 | §3.3 Lint Engine | VAL-005 | Covered |
@@ -956,54 +958,31 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | REQ-008 | §3.3 Failure Analyzer, DEC-004 | VAL-011 | Covered |
 | NEG-001 | §3.3 Conflict Detector 流程 | VAL-012 | Covered |
 | NEG-002 | §3.3 Skill Sync Engine, DEC-003 | VAL-013 | Covered |
-| NEG-003 | §3.6 Security, .gitignore 配置 | VAL-014 | Covered |
-| NEG-004 | DEC-005 Token Bucket | VAL-015 | Covered |
-| QOS-001 | §3.6 Performance, DEC-005 | VAL-016 | Covered |
-| QOS-002 | §3.6 Performance, DEC-005 | VAL-017 | Covered |
+| NEG-003 | §3.6 Security, DEC-005（OAuth，无本地凭据） | VAL-014 | Covered |
+| NEG-004 | §3.5 MCP 限流处理, DEC-005 | VAL-015 | Covered |
+| QOS-001 | §3.6 Performance | VAL-016 | Covered |
+| QOS-002 | §3.6 Performance | VAL-017 | Covered |
 | QOS-003 | §3.6 Performance, Skill 加载机制 | VAL-018 | Covered |
 
 ### 4.5 Verification Commands
 
+前置条件（一次性）：
+
 ```bash
-# 前置条件：配置 Notion MCP 和测试 workspace
-# 创建测试环境
-export NOTION_TEST_TOKEN="ntn_****"
-export NOTION_TEST_WORKSPACE_ID="****"
-git clone git@github.com:RollRollRoll/agent-brain.git /tmp/agent-brain-test
-cd /tmp/agent-brain-test
-git checkout -b test-run
-
-# 运行完整验证流程
-./scripts/verify-system.sh
-
-# 验证脚本内部执行：
-# 1. 检查 Notion MCP 连接（VAL-001 前置条件）
-# 2. 运行 /init-wiki 并检查结构（VAL-001）
-# 3. 添加测试材料并运行 /ingest（VAL-002）
-# 4. 触发冲突并验证分类（VAL-003, VAL-004）
-# 5. 运行 /lint-wiki 并检查报告（VAL-005）
-# 6. 运行 /sync-skills 并检查 skill 文件（VAL-006, VAL-007）
-# 7. Agent 执行测试 skill（VAL-008, VAL-009）
-# 8. 解决冲突并检查 Changelog（VAL-010）
-# 9. 分析失败记录（VAL-011）
-# 10. 负向测试（VAL-012, VAL-013）
-# 11. 安全检查（VAL-014）
-# 12. 性能测试（VAL-015, VAL-016, VAL-017, VAL-018）
-
-# 清理测试环境
-./scripts/cleanup-test.sh
-cd /Users/chenjinfan/WorkSpace/second-brain
-rm -rf /tmp/agent-brain-test
+claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp
+# 然后在 Claude Code 中运行 /mcp 完成 OAuth 登录
 ```
 
-单独运行单元测试或组件测试（如果需要）：
-```bash
-# 冲突检测单元测试
-python tests/unit/test_conflict_detector.py
+静态检查（VAL-014）：
 
-# Skill 生成组件测试
-python tests/component/test_skill_generator.py
+```bash
+git grep -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md'   # 期望无输出
+grep -x '.env' .gitignore                  # 期望输出 .env
 ```
+
+Notion 相关的验证项没有 shell 命令，在 Claude Code 会话中运行对应 skill 完成。
+目前已有的是 `/init-wiki`（VAL-001），其余随各工单的 skill 补充；端到端编排见 #13（VAL-019）。
+纯逻辑出现代码后，在这里补上对应的测试命令。
 
 ### 4.6 Completion Criteria
 
@@ -1012,9 +991,9 @@ python tests/component/test_skill_generator.py
 - ✅ 所有 QOS 达到量化门槛（VAL-015 ~ VAL-018）
 - ✅ 端到端验证脚本通过（VAL-019）
 - ✅ Requirement Coverage 表中所有 REQ/NEG/QOS 状态为 Covered
-- ✅ 测试后自动清理，不污染真实 Notion workspace 和 GitHub 仓库
-- ✅ 关键日志可以被观察（INFO/WARN/ERROR 级别正确）
-- ✅ Notion token 未泄露到 Git 或日志（VAL-014）
+- ✅ 验证只在测试页面下进行，不污染正式 Wiki；测试数据经用户确认后移入回收站
+- ✅ skill 的汇报中能看到每一步的结果、跳过项和失败原因
+- ✅ 仓库中没有 Notion 凭据（VAL-014）
 - ✅ §5 Open Items 中无阻塞性未决问题
 
 ---
@@ -1038,11 +1017,10 @@ python tests/component/test_skill_generator.py
 **已知技术债**（记录但不阻塞发布）：
 
 - Notion MCP 的 Page History API 不可访问，只能用 Notion UI 查看历史版本
-- 速率限制的 Token Bucket 实现可能在极端情况下（大量并发请求）不够精确
+- skill 由 agent 按步骤执行，确定性低于代码；靠 skill 中的回读核对步骤弥补（DEC-005）
 - 冲突分类的 LLM prompt 可能需要根据实际使用情况迭代优化
 
 **需要用户确认的配置**（初次使用前）：
 
 - GitHub 仓库 `agent-brain` 的可见性（公开或私有）
-- 测试 Notion workspace 的创建（用于运行 VAL 测试）
-- Notion Integration 的权限范围（只读或读写）
+- 用于运行 VAL 测试的 Notion 测试页面
