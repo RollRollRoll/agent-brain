@@ -11,6 +11,17 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 各工具的参数格式以工具自身的描述为准。写数据库条目前，先用 `notion-fetch` 读取目标 data source，
 按返回的字段名和 SQLite 定义填属性。
 
+## 写入注意事项（2026-10-22 实测）
+
+- **multi_select 选项必须先存在**：写入不存在的选项会报 `validation_error`。写入前对比 data source 已有选项，
+  缺的用 `notion-update-data-source` 加上：`ALTER COLUMN "领域标签" SET MULTI_SELECT('已有选项':颜色, '新选项':颜色)`，
+  **必须列出全部已有选项**，漏掉的会被删除。新增选项要在第 6 步的建议里列出来，让用户一并确认。
+- **文件名会被识别成链接**：正文和属性里写 `index.md` 这类"名字.后缀"时，Notion 会自动转成 `http://index.md` 链接。
+  一律用反引号包起来，例如 `` `index.md` ``。
+- **页面提及**：写 `<mention url="页面 URL" />`。
+- **relation 和 multi_select 属性**：值是 JSON 数组字符串，例如 `"[\"https://app.notion.com/p/...\"]"`。
+- **批量创建**：同一 data source 下的多个页面可以在一次 `notion-create-pages` 中创建。
+
 ## 前置条件
 
 `notion-*` 工具不可用时，停下来告诉用户：运行
@@ -46,13 +57,14 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 7. **写入**：逐条材料处理：
    1. 用 `notion-create-pages` 在 Wiki Index 中新建页面（parent 用 Wiki Index 的 data source ID），
       属性填标题、分类、领域标签、简短摘要，「来源材料」填这条材料的页面 URL。
-   2. 正文末尾加「相关页面」一节，用 `<mention-page url="...">标题</mention-page>` 提及相关页面。
+   2. 正文末尾加「相关页面」一节，用 `<mention url="..." />` 提及相关页面。
       同一批新建的页面互相提及时，先把页面都建好，再用 `notion-update-page` 追加这一节。
    3. 在 Wiki Changelog 中为每个新页面建一条记录：变更摘要「新建：<标题>」、Wiki 页面、来源材料、
       变更类型「新建」、详情（一句话说明提炼自哪条材料）。
    4. 这条材料的页面和 Changelog 都写完后，用 `notion-update-page` 把它在 Sources 中的「状态」改为「已入库」。
 
-8. **核对**：用 `notion-fetch` 回读新建的页面，确认属性和来源材料关联正确。
+8. **核对**：用 `notion-fetch` 回读新建的页面，确认属性和来源材料关联正确，
+   并检查正文和摘要里没有 `http://<文件名>` 这类被误识别的链接，有就改成反引号写法。
 
 ## 失败处理
 
