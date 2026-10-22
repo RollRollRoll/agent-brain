@@ -101,6 +101,9 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 ## 失败处理
 
 - 工具返回 `rate_limited`：按 `retry_after_seconds` 等待后重试一次；再次失败就停下并汇报。
+- `notion-query-data-sources` 返回 `usage_limit_reached`（非 Business 版的 SQL / rows 查询额度用完）：
+  不要重试，立刻停下。已经写入的内容按「写到一半失败」处理并汇报；告诉用户额度会在 60 分钟内重置，
+  重置后重新运行即可。按工具返回的 `client_guidance` 向用户说明一次，带上它给的链接。
 - 写到一半失败：停止，列出已写入的页面、追加过的页面、Changelog、冲突记录，以及失败原因。
   这条材料的状态保持「待处理」；重新运行时，第 5 步会跳过已经写入的知识点和已经存在的冲突记录。
 - 不删除已写入的内容来"回滚"。
