@@ -10,28 +10,10 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 
 - 没有对应页面：新建页面
 - 和已有页面一致、只是补充：经用户确认后，把补充内容追加到已有页面
-- 和已有页面说法不一致：**不改已有页面**，只记入 Conflicts（NEG-001）。冲突处理命令还没有提供，
-  目前由用户在 Notion 的 Conflicts 数据库里查看和处理
+- 和已有页面说法不一致：**不改已有页面**，只记入 Conflicts（NEG-001），由用户用 `/wiki-admin:resolve-conflict` 处理
 
-各工具的参数格式以工具自身的描述为准。写数据库条目前，先用 `notion-fetch` 读取目标 data source，
-按返回的字段名和 SQLite 定义填属性。
-
-## 写入注意事项（2026-10-22 实测）
-
-- **multi_select 选项必须先存在**：写入不存在的选项会报 `validation_error`。写入前对比 data source 已有选项，
-  缺的用 `notion-update-data-source` 加上：`ALTER COLUMN "领域标签" SET MULTI_SELECT('已有选项':颜色, '新选项':颜色)`，
-  **必须列出全部已有选项**，漏掉的会被删除。新增选项要在第 6 步的建议里列出来，让用户一并确认。
-- **文件名会被识别成链接**：正文和属性里写 `index.md` 这类"名字.后缀"时，Notion 会自动转成 `http://index.md` 链接。
-  一律用反引号包起来，例如 `` `index.md` ``。
-- **页面提及**：写 `<mention url="页面 URL" />`。
-- **relation 和 multi_select 属性**：值是 JSON 数组字符串，例如 `"[\"https://app.notion.com/p/...\"]"`。
-- **批量创建**：同一 data source 下的多个页面可以在一次 `notion-create-pages` 中创建。
-
-## 前置条件
-
-`notion-*` 工具不可用时，停下来告诉用户：运行
-`claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录；
-工具仍不出现就重启会话。
+调用 `notion-*` 工具的前置条件、写入格式和报错处理见 [Notion 工具使用约定](../../references/notion-tools.md)。
+新增 multi_select 选项要在第 6 步的建议里列出来，让用户一并确认。
 
 ## 步骤
 
@@ -104,13 +86,10 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 
 ## 失败处理
 
-- 工具返回 `rate_limited`：按 `retry_after_seconds` 等待后重试一次；再次失败就停下并汇报。
-- `notion-query-data-sources` 返回 `usage_limit_reached`（非 Business 版的 SQL / rows 查询额度用完）：
-  不要重试，立刻停下。已经写入的内容按「写到一半失败」处理并汇报；告诉用户额度会在 60 分钟内重置，
-  重置后重新运行即可。按工具返回的 `client_guidance` 向用户说明一次，带上它给的链接。
+工具报错（`rate_limited`、`usage_limit_reached` 等）按 [Notion 工具使用约定](../../references/notion-tools.md) 处理。
+
 - 写到一半失败：停止，列出已写入的页面、追加过的页面、Changelog、冲突记录，以及失败原因。
   这条材料的状态保持「待处理」；重新运行时，第 5 步会跳过已经写入的知识点和已经存在的冲突记录。
-- 不删除已写入的内容来"回滚"。
 
 ## 汇报
 

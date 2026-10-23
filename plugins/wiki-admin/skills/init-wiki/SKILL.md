@@ -12,11 +12,7 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 
 ## 前置条件
 
-`notion-*` 工具不可用时，停下来告诉用户：
-
-1. 运行 `claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`
-2. 在 Claude Code 中运行 `/mcp`，按提示完成 OAuth 登录
-3. 如果工具仍不出现，重启会话
+见 [Notion 工具使用约定](../../references/notion-tools.md) 的「前置条件」。
 
 ## 步骤
 
@@ -69,7 +65,7 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 
 ## 失败处理
 
-- 工具返回 `rate_limited`：按 `retry_after_seconds` 等待后重试一次；再次失败就停下并汇报。
+- 工具报错（`rate_limited` 等）按 [Notion 工具使用约定](../../references/notion-tools.md) 处理。
 - 数据库建到一半失败：停止，列出已创建内容的链接和失败原因。不要自动清理；告诉用户修复后可以重新运行，
   到第 3 步时选择覆盖即可。
 - 视图失败：结构其余部分照常完成，在汇报中说明哪个视图没建成，用户可以在 Notion 中手动添加。
