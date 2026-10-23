@@ -21,7 +21,8 @@ wiki-admin 中调用 `notion-*` 工具的 skill 都按本文处理前置条件�
 - **relation 和 multi_select 属性**：值是 JSON 数组字符串，例如 `"[\"https://app.notion.com/p/...\"]"`。
 - **批量创建**：同一 data source 下的多个页面可以在一次 `notion-create-pages` 中创建。
 - **改页面中的一段**：用 `notion-update-page` 的 `update_content`，`old_str` 取原文且必须在页面中唯一。
-  不要用 `replace_content` 整页覆盖。
+  不要用 `replace_content` 整页覆盖。`old_str` 里不要包含 `<mention ... />`：fetch 返回的 mention 标记匹配不到，
+  会报 `validation_error: No matches found`（2026-10-23 实测）。要在 mention 列表末尾追加时用 `insert_content`。
 
 ## 工具报错
 

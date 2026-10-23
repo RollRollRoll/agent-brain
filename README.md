@@ -53,6 +53,16 @@ Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页
 在 Sources 数据库添加材料（状态设为「待处理」），然后运行 `/wiki-admin:ingest`。
 它会先列出拟创建的 Wiki 页面，你确认后才写入 Notion。
 
+### 6. 处理冲突
+
+入库时发现的知识冲突记在 Conflicts 数据库。运行 `/wiki-admin:resolve-conflict <冲突链接或关键词>`，
+选择采纳新内容、保留旧内容、两者都保留或手动编辑。`/wiki-admin:resolve-conflict history <页面>` 查看页面的变更历史。
+
+### 7. 检查 Wiki
+
+运行 `/wiki-admin:lint-wiki`，在会话中输出矛盾、可能过时、缺失链接、孤岛页面的报告；
+明确的缺失链接在你确认后自动补上。
+
 ## 项目结构
 
 ```
