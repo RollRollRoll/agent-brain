@@ -10,8 +10,7 @@ description: 把 Sources 中待处理的原始材料提炼成 Wiki 页面，用�
 
 - 没有对应页面：新建页面
 - 和已有页面一致、只是补充：经用户确认后，把补充内容追加到已有页面
-- 和已有页面说法不一致：**不改已有页面**，只记入 Conflicts（NEG-001）。冲突处理命令还没有提供，
-  目前由用户在 Notion 的 Conflicts 数据库里查看和处理
+- 和已有页面说法不一致：**不改已有页面**，只记入 Conflicts（NEG-001），由用户用 `/wiki-admin:resolve-conflict` 处理
 
 各工具的参数格式以工具自身的描述为准。写数据库条目前，先用 `notion-fetch` 读取目标 data source，
 按返回的字段名和 SQLite 定义填属性。
