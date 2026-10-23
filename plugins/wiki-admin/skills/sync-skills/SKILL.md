@@ -23,11 +23,14 @@ description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具�
 2. **有所需工具**：有「所需工具」一节，或在前置条件里写明了要用的软件、命令或服务
 3. **有前置条件**：有「前置条件」一节，列出开始前必须具备的东西
 
+这里和 spec 有一处差异：SCN-005-A 和 ADR 0002 写的是「步骤、工具、输入输出」，SCN-005-A 下一行和 #9 写的是
+「步骤、工具、前置条件」。本 skill 按后者判定：techniques 页面按 ingest 第 4 步的要求写前置条件，没有固定的「输入输出」一节。
+
 判定只看页面写了什么，不替页面补内容。不可执行的页面在汇报里列出缺了哪一条，用户可以补全页面后再同步。
 
 ## sync-metadata.json
 
-放在仓库根目录，格式按 spec §3.4（DEC-003），每个生成的 skill 副本一条记录：
+放在仓库根目录，格式按 spec §3.4 的 sync-metadata.json 一行（冲突检测会用到它，见 DEC-003），每个生成的 skill 副本一条记录：
 
 ```json
 {
@@ -57,8 +60,7 @@ description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具�
 
 2. **定位 Wiki**：按 [定位 Wiki](../../references/locate-wiki.md) 找到根页面，取出 Wiki Index 的 data source ID 和数据库 URL。
 
-3. **列出 techniques 页面**：按 `/wiki-admin:lint-wiki` 第 2 步的方式分页读取 Wiki Index（首选 view 模式，
-   每批 100 行，按 `next_cursor` 取完），只保留「分类」= techniques 的页面。
+3. **列出 techniques 页面**：按 [Notion 工具使用约定](../../references/notion-tools.md) 的「分页读取 Wiki Index」读取全部页面，只保留「分类」= techniques 的页面。
    没有 techniques 页面时告诉用户，结束，不做任何修改。
 
 4. **读取并判定**：对每个页面 `notion-fetch` 读正文，按上面的判定标准分为可执行、不可执行。
@@ -83,7 +85,8 @@ description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具�
       在 `.claude-plugin/marketplace.json` 的 `plugins` 里加一条：`name`、`source`（`./plugins/<plugin>`）、`description`、`category`
    2. 每个副本写 `plugins/<plugin>/skills/<skill 名>/SKILL.md`
    3. 更新 `sync-metadata.json`
-   4. 新增了领域映射时，更新 [领域标签与 plugin 名](references/domain-plugins.md)
+   4. 新增了领域映射时，更新目标仓库里的 `plugins/wiki-admin/skills/sync-skills/references/domain-plugins.md`
+      （不是 plugin 缓存里的这份），和生成的 skill 一起提交
 
 7. **校验**：
    - 运行 `claude plugin validate .`（仓库根目录）：marketplace 和每个 plugin 都要通过。
@@ -103,9 +106,9 @@ description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具�
 工具报错（`rate_limited`、`usage_limit_reached` 等）按 [Notion 工具使用约定](../../references/notion-tools.md) 处理。
 
 - 读取阶段失败（限流重试后仍失败、额度用完等）：停止，不写任何文件，说明读到了第几个页面和失败原因
-- 单个 skill 生成失败或校验不通过：删掉这个 skill 本次新建的文件（只删本次写的），不写它的 metadata 记录，
-  在汇报里说明原因，提示用户检查 Notion 页面；其他 skill 照常提交（spec §3.5）
-- 提交前失败：不提交，列出已经写入的文件，用户可以用 `git status` 查看、自行决定保留还是丢弃
+- 单个 skill 生成失败或校验不通过：不写它的 metadata 记录，也不提交它的文件。列出这个 skill 本次新建的文件，
+  问用户是否删除，**用户明确同意后才删**；不同意就留在工作区，由用户处理。  在汇报里说明原因，提示用户检查 Notion 页面；其他 skill 照常提交（spec §3.5）
+- 写到一半失败（写文件、校验或提交时出错）：不提交，列出已经写入的文件，用户可以用 `git status` 查看、自行决定保留还是丢弃
 - 不删除已经提交的内容来"回滚"
 
 ## 汇报

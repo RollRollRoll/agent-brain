@@ -24,6 +24,20 @@ wiki-admin 中调用 `notion-*` 工具的 skill 都按本文处理前置条件�
   不要用 `replace_content` 整页覆盖。`old_str` 里不要包含 `<mention ... />`：fetch 返回的 mention 标记匹配不到，
   会报 `validation_error: No matches found`（2026-10-23 实测）。要在 mention 列表末尾追加时用 `insert_content`。
 
+## 分页读取 Wiki Index
+
+需要读取全部 Wiki 页面的 skill（lint-wiki、sync-skills）都按下面的方式分页：
+
+- 首选 view 模式（不占 SQL / rows 查询额度）：`notion-fetch` Wiki Index 数据库，取 `Default view` 的 view URL，
+  确认它没有筛选条件；然后 `notion-query-data-sources`（`mode: "view"`，`page_size: 100`）查询。
+  返回 `has_more: true` 时把 `next_cursor` 作为 `start_cursor` 继续查，直到 `has_more` 为 false。
+- 默认视图带筛选、或被删掉时，改用 rows 模式：每次 `limit: 100`，按 `createdTime` 升序；
+  不满 100 行说明取完了，满 100 行就用 `created_time` 的 `date_is_on_or_after`（不要用 `date_is_after`：同一批建的页面创建时间相同，
+  会漏掉）筛选上一批最后一行的创建时间，继续取，按 URL 去掉已经取过的页面。一批里没有新页面时停下，
+  告诉用户 rows 模式无法分页，请恢复默认视图后重试。
+
+汇报里写明共取了几批、几个页面。
+
 ## 工具报错
 
 - `rate_limited`：按 `retry_after_seconds` 等待后重试一次；再次失败就停下，按所在 skill 的「写到一半失败」汇报。
