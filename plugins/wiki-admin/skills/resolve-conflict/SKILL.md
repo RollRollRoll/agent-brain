@@ -10,18 +10,10 @@ description: 展示 Conflicts 中的一条冲突和推荐方案，按用户的�
 
 两种用法：
 
-- `/resolve-conflict <冲突>`：解决一条冲突。`<冲突>` 可以是冲突记录的链接，也可以是冲突摘要里的关键词
-- `/resolve-conflict history <Wiki 页面>`：查询一个页面的全部变更历史（SCN-007-B），只读
+- `/wiki-admin:resolve-conflict <冲突>`：解决一条冲突。`<冲突>` 可以是冲突记录的链接，也可以是冲突摘要里的关键词
+- `/wiki-admin:resolve-conflict history <Wiki 页面>`：查询一个页面的全部变更历史（SCN-007-B），只读
 
-各工具的参数格式以工具自身的描述为准。写数据库条目前，先用 `notion-fetch` 读取目标 data source，
-按返回的字段名填属性。写入注意事项（multi_select 选项、文件名链接、mention、relation 格式）同
-[ingest](../ingest/SKILL.md) 的「写入注意事项」。
-
-## 前置条件
-
-`notion-*` 工具不可用时，停下来告诉用户：运行
-`claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录；
-工具仍不出现就重启会话。
+调用 `notion-*` 工具的前置条件、写入格式和报错处理见 [Notion 工具使用约定](../../references/notion-tools.md)。
 
 ## 解决冲突
 
@@ -63,13 +55,13 @@ description: 展示 Conflicts 中的一条冲突和推荐方案，按用户的�
 5. **执行**：
    1. 写入前再查一次 Wiki 页面的最后编辑时间，和第 3 步记下的不同就停下，告诉用户页面在此期间被改过，
       重新运行以基于最新内容处理。
-   2. 需要改页面时，用 `notion-update-page` 的 `update_content`（`old_str` 取冲突那段原文，必须在页面中唯一）只改冲突的那段，
-      不要用 `replace_content` 整页覆盖。把新材料加进页面的「来源材料」（保留原有的值）；选「保留旧内容」时不改「来源材料」。
+   2. 需要改页面时，用 `update_content` 只改冲突的那段，不要整页覆盖。把新材料加进页面的「来源材料」（保留原有的值）；选「保留旧内容」时不改「来源材料」。
       冲突是在同一批里新建的页面上产生的，处理方式相同。
    3. 用 `notion-update-page` 更新冲突记录：「状态」改为「已解决」，「解决方案」写用户的选择和一句说明，
       例如「采纳新内容：页面中的发布年份改为 2023 年」「保留旧内容：证据不足，用户维持原说法」。
    4. 在 Wiki Changelog 建一条记录（VAL-010）：变更摘要「冲突解决：<冲突摘要>」、Wiki 页面、来源材料（冲突的新材料）、
-      变更类型「冲突解决」、详情（用户的选择、改了哪段；保留旧内容时写「未修改页面」）。
+      变更类型「冲突解决」、详情（用户的选择、改了哪段；保留旧内容时写「未修改页面」），
+      详情开头写用户确认的时间，例如「2026-10-23 11:20 用户确认」（NEG-001 要求冲突解决有用户确认的时间戳）。
       选「保留旧内容」也要记：冲突解决本身要可追溯。
 
 6. **核对**：`notion-fetch` 回读 Wiki 页面、冲突记录和 Changelog 记录，确认改动只在冲突的那段、
@@ -85,13 +77,12 @@ description: 展示 Conflicts 中的一条冲突和推荐方案，按用户的�
 
 ## 失败处理
 
-- 工具返回 `rate_limited`：按 `retry_after_seconds` 等待后重试一次；再次失败就停下并汇报。
-- `notion-query-data-sources` 返回 `usage_limit_reached`：不要重试，立刻停下，告诉用户额度会在 60 分钟内重置，
-  按工具返回的 `client_guidance` 说明一次并带上链接。
+工具报错（`rate_limited`、`usage_limit_reached` 等）按 [Notion 工具使用约定](../../references/notion-tools.md) 处理。
+
 - 写到一半失败：停止，列出已经完成的步骤（页面是否已改、冲突状态是否已改、Changelog 是否已建）和失败原因。
   重新运行时，冲突仍未解决就从第 3 步重来；页面已改但状态未改时，先展示当前页面内容让用户确认，不要重复替换。
-- 不删除已写入的内容来"回滚"。
 
 ## 汇报
 
 结束时列出：处理的冲突链接、用户的选择、修改过的 Wiki 页面链接（或「未修改」）、新建的 Changelog 记录链接。
+页面被修改过时，提醒用户：修改前的版本可以在 Notion 页面的「页面历史」（Page History）中找回（SCN-007-A）。
