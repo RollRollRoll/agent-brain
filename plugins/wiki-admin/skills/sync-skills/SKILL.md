@@ -106,7 +106,6 @@ Notion 一侧仍按 DEC-003 比较最后编辑时间。
    `python3 <本 skill 目录>/scripts/sync_state.py plan --pages <临时 JSON> --repo .`，输出每个副本的 `action`。
    `<本 skill 目录>` 是这份 SKILL.md 所在的目录（plugin 缓存里也可以，脚本只读不写自身目录）；`--repo` 指向第 1 步确认的仓库：
 
-
    | action | 含义 | 本次怎么处理 |
    |---|---|---|
    | `new` | 没有同步记录 | 按模板生成。目标路径已经有文件时不覆盖，标为「路径被占用」，请用户处理 |
