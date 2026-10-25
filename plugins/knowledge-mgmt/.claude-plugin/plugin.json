@@ -1,0 +1,13 @@
+{
+  "name": "knowledge-mgmt",
+  "description": "知识管理领域的 skill，由 /wiki-admin:sync-skills 从 LLM Wiki 生成",
+  "author": {
+    "name": "RollRollRoll"
+  },
+  "repository": "https://github.com/RollRollRoll/agent-brain",
+  "license": "Apache-2.0",
+  "keywords": [
+    "knowledge-management",
+    "llm-wiki"
+  ]
+}
