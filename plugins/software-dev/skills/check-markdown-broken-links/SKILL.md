@@ -33,3 +33,5 @@ description: 在本地 Markdown 目录中找出指向不存在 `.md` 文件的�
 ## 出处
 
 - Wiki 页面：检查 Markdown 失效链接（https://app.notion.com/p/4047d7a648e4810190afee993061bf45）
+
+<!-- 本地手动修改：只检查 docs/ 目录 -->
