@@ -1,12 +1,6 @@
 {
-  "last_sync": "2026-10-25T00:50:10Z",
+  "last_sync": "2026-10-25T01:00:11Z",
   "skills": [
-    {
-      "notion_page_id": "4047d7a6-48e4-8175-b38c-e8d17b026898",
-      "skill_path": "plugins/knowledge-mgmt/skills/generate-wiki-index/SKILL.md",
-      "last_sync": "2026-10-25T00:50:10Z",
-      "content_hash": "e4acac3b96c65d4b03131fba6d4b756e6bd62cab"
-    },
     {
       "notion_page_id": "4047d7a6-48e4-8101-90af-ee993061bf45",
       "skill_path": "plugins/software-dev/skills/check-markdown-broken-links/SKILL.md",
@@ -30,6 +24,18 @@
       "skill_path": "plugins/software-dev/skills/llm-wiki-ingest/SKILL.md",
       "last_sync": "2026-10-25T00:50:10Z",
       "content_hash": "eae3cb6e284782580d1eb6c9c2513ec50993eb9f"
+    },
+    {
+      "notion_page_id": "4047d7a6-48e4-8175-b38c-e8d17b026898",
+      "skill_path": "plugins/knowledge-mgmt/skills/generate-wiki-index/SKILL.md",
+      "last_sync": "2026-10-25T01:00:11Z",
+      "content_hash": "a5bd87398c61c6f004f5e3766d1ec96aaad6b865"
+    },
+    {
+      "notion_page_id": "4047d7a6-48e4-8102-a4c5-ceead11a1f8d",
+      "skill_path": "plugins/knowledge-mgmt/skills/count-wiki-pages/SKILL.md",
+      "last_sync": "2026-10-25T01:00:11Z",
+      "content_hash": "18cd1622d575fc15b0de7461e66950e89ec3dc62"
     }
   ]
 }
