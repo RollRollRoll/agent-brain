@@ -211,6 +211,70 @@ class SyncStateTest(unittest.TestCase):
         paths = [r["skill_path"] for r in self.metadata()["skills"]]
         self.assertEqual(paths, [PATH_KM])
 
+    def test_旧记录没有content_hash且本地文件已删时按本地已改处理(self):
+        # 两个都是「没有哈希」，不能当成相等
+        metadata = {
+            "last_sync": "2026-10-24T08:00:00Z",
+            "skills": [
+                {
+                    "notion_page_id": PAGE,
+                    "skill_path": PATH_KM,
+                    "last_sync": "2026-10-24T08:00:00Z",
+                }
+            ],
+        }
+        (self.repo / "sync-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+
+        items = self.plan([self.executable("2026-10-24T09:30:00.000Z")])
+
+        self.assertEqual(items[PATH_KM]["action"], "conflict")
+
+    def test_新路径上已有文件时标为路径被占用(self):
+        self.write_skill(PATH_KM, "用户自己写的 skill\n")
+
+        items = self.plan([self.executable("2026-10-24T09:30:00.000Z")])
+
+        self.assertEqual(items[PATH_KM]["action"], "path_occupied")
+
+    def test_路径已属于另一个页面时标为路径被占用(self):
+        other = "4047d7a6-48e4-8102-a4c5-ceead11a1f8d"
+        self.write_skill(PATH_KM, "另一个页面生成的内容\n")
+        self.record(PATH_KM, page=other)
+
+        # 两个页面都认领同一路径，plan() 按路径建字典会丢一条，这里看原始列表
+        actions = [
+            i for i in json.loads(self.run_plan_raw([
+                self.executable("2026-10-24T07:00:00.000Z", page=other),
+                self.executable("2026-10-24T09:30:00.000Z", page=PAGE),
+            ]))["items"]
+            if i["skill_path"] == PATH_KM
+        ]
+        self.assertEqual(
+            sorted((a["notion_page_id"], a["action"]) for a in actions),
+            sorted([(other, "unchanged"), (PAGE, "path_occupied")]),
+        )
+
+    def run_plan_raw(self, pages):
+        pages_file = self.repo / "pages.json"
+        pages_file.write_text(json.dumps({"pages": pages}), encoding="utf-8")
+        return self.run_cli("plan", "--pages", str(pages_file))
+
+    def test_record在文件不存在时报错且不写记录(self):
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT), "record",
+                "--page-id", PAGE,
+                "--skill-path", PATH_KM,
+                "--synced-at", "2026-10-24T08:00:00Z",
+                "--repo", str(self.repo),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.repo / "sync-metadata.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

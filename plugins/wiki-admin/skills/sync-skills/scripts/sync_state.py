@@ -42,25 +42,43 @@ def content_hash(repo, skill_path):
     return result.stdout.strip()
 
 
-def local_changed(repo, record):
-    """本地文件和上次同步写入的内容不同。旧记录没有 content_hash 时无法确认，按已改处理，避免覆盖。"""
-    return content_hash(repo, record["skill_path"]) != record.get("content_hash")
+def local_changed(repo, rec):
+    """本地文件和上次同步写入的内容不同。
+
+    旧记录没有 content_hash、或文件已被删掉时无法确认，按已改处理，避免覆盖。
+    两者都缺时不能当成「相等」。
+    """
+    expected = rec.get("content_hash")
+    current = content_hash(repo, rec["skill_path"])
+    if expected is None or current is None:
+        return True
+    return current != expected
 
 
 def plan(repo, pages):
     records = {r["skill_path"]: r for r in load_metadata(repo)["skills"]}
     pages_by_id = {p["notion_page_id"]: p for p in pages}
     items = []
-    claimed = set()
+    claimed = set()  # (skill_path, 页面 ID)：这次被所属页面认领的记录
+    assigned = {}  # skill_path -> 页面 ID：这次已经分给某个页面的路径
     for page in pages:
         if page["state"] != "executable":
             continue
+        page_id = page["notion_page_id"]
         for skill_path in page["skill_paths"]:
-            claimed.add(skill_path)
-            item = {"skill_path": skill_path, "notion_page_id": page["notion_page_id"]}
+            item = {"skill_path": skill_path, "notion_page_id": page_id}
             rec = records.get(skill_path)
+            owner = rec["notion_page_id"] if rec else assigned.get(skill_path, page_id)
+            if owner != page_id:
+                # 路径已经属于另一个页面（有记录，或本次先分给了别的页面），不能拿来覆盖
+                item["action"] = "path_occupied"
+                items.append(item)
+                continue
+            assigned[skill_path] = page_id
+            claimed.add((skill_path, page_id))
             if rec is None:
-                item["action"] = "new"
+                # 没有记录但文件已存在：多半是用户自己写的 skill，不覆盖
+                item["action"] = "path_occupied" if (repo / skill_path).exists() else "new"
                 items.append(item)
                 continue
             notion_dirty = parse_time(page["last_edited"]) > parse_time(rec["last_sync"])
@@ -77,7 +95,7 @@ def plan(repo, pages):
 
     # 有记录、但这次没有被任何可执行页面认领的副本：对应页面已删除、不再可执行，或去掉了这个领域标签
     for skill_path, rec in records.items():
-        if skill_path in claimed:
+        if (skill_path, rec["notion_page_id"]) in claimed:
             continue
         page = pages_by_id.get(rec["notion_page_id"])
         item = {"skill_path": skill_path, "notion_page_id": rec["notion_page_id"]}
@@ -100,12 +118,16 @@ def plan(repo, pages):
 
 def record(repo, page_id, skill_path, synced_at):
     """写入或替换一条同步记录，content_hash 取文件当前内容。"""
+    digest = content_hash(repo, skill_path)
+    if digest is None:
+        # 没有文件就记一条 content_hash 为空的记录，下次会被当成「本地已改」，所以直接报错
+        sys.exit(f"错误：{skill_path} 不存在，先写文件再 record")
     metadata = load_metadata(repo)
     entry = {
         "notion_page_id": page_id,
         "skill_path": skill_path,
         "last_sync": synced_at,
-        "content_hash": content_hash(repo, skill_path),
+        "content_hash": digest,
     }
     others = [r for r in metadata["skills"] if r["skill_path"] != skill_path]
     metadata["skills"] = others + [entry]
