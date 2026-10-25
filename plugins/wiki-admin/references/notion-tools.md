@@ -20,6 +20,7 @@ wiki-admin 中调用 `notion-*` 工具的 skill 都按本文处理前置条件�
 - **页面提及**：写 `<mention url="页面 URL" />`。
 - **relation 和 multi_select 属性**：值是 JSON 数组字符串，例如 `"[\"https://app.notion.com/p/...\"]"`。
 - **批量创建**：同一 data source 下的多个页面可以在一次 `notion-create-pages` 中创建。
+- **日期时间只保留到分钟**：写入带秒的时间，回读时秒数会被去掉。核对时不要把这当成写错（2026-10-23 实测）。
 - **改页面中的一段**：用 `notion-update-page` 的 `update_content`，`old_str` 取原文且必须在页面中唯一。
   不要用 `replace_content` 整页覆盖。`old_str` 里不要包含 `<mention ... />`：fetch 返回的 mention 标记匹配不到，
   会报 `validation_error: No matches found`（2026-10-23 实测）。要在 mention 列表末尾追加时用 `insert_content`。

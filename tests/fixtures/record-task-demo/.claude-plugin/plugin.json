@@ -1,0 +1,9 @@
+{
+  "name": "record-task-demo",
+  "description": "#11 验证用：一个必然成功、一个必然失败的测试 skill，用来检查 Agent Tasks 记录。不发布到 marketplace",
+  "author": {
+    "name": "RollRollRoll"
+  },
+  "repository": "https://github.com/RollRollRoll/agent-brain",
+  "license": "Apache-2.0"
+}

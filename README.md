@@ -63,6 +63,12 @@ Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页
 运行 `/wiki-admin:lint-wiki`，在会话中输出矛盾、可能过时、缺失链接、孤岛页面的报告；
 明确的缺失链接在你确认后自动补上。
 
+### 8. 记录任务结果
+
+由 `/wiki-admin:sync-skills` 生成的 skill 执行结束后，会调用 `/wiki-admin:record-task` 把结果记到 Agent Tasks：
+成功时记结果摘要，失败时记错误信息和 agent 的分析。没有安装 wiki-admin 或记录失败时，任务结果照常返回，
+agent 会说明没能记录。
+
 ## 项目结构
 
 ```
