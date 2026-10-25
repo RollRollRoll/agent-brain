@@ -1,6 +1,6 @@
 {
   "name": "wiki-admin",
-  "description": "维护 Notion 上的 LLM Wiki：初始化结构、入库原始材料、整理检查、把 Wiki 中的方法同步成 skill",
+  "description": "维护 Notion 上的 LLM Wiki：初始化结构、入库原始材料、整理检查、把 Wiki 中的方法同步成 skill、记录 agent 任务结果",
   "author": {
     "name": "RollRollRoll"
   },
