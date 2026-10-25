@@ -81,6 +81,9 @@ concepts/、techniques/、tools/ 分类页面只是按「分类」筛选的视�
 
 **冲突处理**：如果本地 skill 和 Notion technique 都被修改，标记冲突需要人工合并。
 
+**副本**：同一个 technique 页面生成的 skill，按页面的每个领域标签各放进一个领域 plugin，每一份叫一个副本。
+副本内容相同、路径不同，`sync-metadata.json` 里每个副本一条记录。
+
 ## 参与者
 
 ### 用户
