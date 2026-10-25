@@ -24,7 +24,7 @@ def save_metadata(repo, metadata):
 
 
 def parse_time(value):
-    # Notion 返回 2026-10-24T09:30:00.000Z，Python 3.9 的 fromisoformat 不认 Z
+    # Notion 返回 2026-10-24T09:30:00.000Z，Python 3.11 之前的 fromisoformat 不认 Z
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
@@ -142,21 +142,20 @@ def remove(repo, skill_path):
     save_metadata(repo, metadata)
 
 
-def main(argv=None):
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--repo", default=".", help="agent-brain 仓库根目录")
     sub = parser.add_subparsers(dest="command", required=True)
-    p_plan = sub.add_parser("plan", help="输出每个 skill 副本的处理动作")
+    p_plan = sub.add_parser("plan", parents=[common], help="输出每个 skill 副本的处理动作")
     p_plan.add_argument("--pages", required=True, help="Notion 页面状态 JSON 文件")
-    p_plan.add_argument("--repo", default=".", help="agent-brain 仓库根目录")
-    p_record = sub.add_parser("record", help="写入一个 skill 副本的同步记录")
+    p_record = sub.add_parser("record", parents=[common], help="写入一个 skill 副本的同步记录")
     p_record.add_argument("--page-id", required=True, help="带连字符的 Notion 页面 ID")
     p_record.add_argument("--skill-path", required=True, help="相对仓库根目录的 SKILL.md 路径")
     p_record.add_argument("--synced-at", required=True, help="UTC ISO 时间")
-    p_record.add_argument("--repo", default=".", help="agent-brain 仓库根目录")
-    p_remove = sub.add_parser("remove", help="删除一个 skill 副本的同步记录")
+    p_remove = sub.add_parser("remove", parents=[common], help="删除一个 skill 副本的同步记录")
     p_remove.add_argument("--skill-path", required=True, help="相对仓库根目录的 SKILL.md 路径")
-    p_remove.add_argument("--repo", default=".", help="agent-brain 仓库根目录")
-    args = parser.parse_args(argv)
+    args = parser.parse_args()
 
     repo = Path(args.repo)
     if args.command == "plan":

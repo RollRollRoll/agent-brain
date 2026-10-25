@@ -157,7 +157,7 @@ class SyncStateTest(unittest.TestCase):
 
         self.assertEqual(items[PATH_KM]["action"], "conflict")
 
-    def test_页面新增领域标签时只给新领域生成副本(self):
+    def test_页面新增领域标签时给新领域生成副本(self):
         self.write_skill(PATH_KM, "生成的内容\n")
         self.record(PATH_KM, synced_at="2026-10-24T08:00:00Z")
 
