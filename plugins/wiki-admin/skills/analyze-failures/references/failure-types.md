@@ -10,7 +10,7 @@
 | 类型 | 判定条件 | 错误信息示例 | 修复方向 | 修复目标 |
 |---|---|---|---|---|
 | 外部服务不可用 | 错误来自 skill 调用的网络服务或 API，且是暂时性的：超时、5xx、连接被拒、限流、服务维护。同样的输入稍后重试可能成功 | `503 Service Unavailable`、`ETIMEDOUT`、`rate_limited` | 在「失败处理」里写明重试或降级办法；服务本身没问题时建议用户直接重试，不改 skill | 本地 skill |
-| 工具路径/配置错误 | skill 写死的命令、路径、参数名、配置项不对：命令不存在、文件路径不存在、参数不被识别。换成正确的写法就能执行 | `command not found`、`/usr/bin/ffmpeg: No such file or directory`、`unknown option --foo` | 改 skill 里的路径或参数，例如写死的路径改为 `which <命令>` 或环境变量 | 本地 skill |
+| 工具路径/配置错误 | skill 写死的命令、路径、参数名、配置项不对：命令不存在、文件路径不存在、参数不被识别。换成正确的写法就能执行 | `command not found`、`/usr/bin/ffmpeg: No such file or directory`、`unknown option --foo` | 检查路径：核对 skill 里写的命令、路径、参数，改成正确的写法，例如写死的路径改为 `which <命令>` 或环境变量 | 本地 skill |
 | 前置条件缺失 | skill 写对了，但执行环境缺东西：依赖没装、没登录、权限不足、需要的文件或账号不存在。skill 的「前置条件」没写这一条，或写了但没检查 | `Permission denied`、`not logged in`、`ModuleNotFoundError` | 在「前置条件」补上这一条，在第 1 步前加检查和提示 | 本地 skill |
 | 输入数据格式问题 | 用户给的输入不符合 skill 的预期：格式、编码、大小、字段不对。换一个合格的输入就能成功 | `Invalid data found when processing input`、`JSONDecodeError`、`unsupported file type` | 在 skill 里写明输入要求，在开始前检查输入，不合格时告诉用户 | 本地 skill |
 | 知识不足 | agent 不知道怎么做：步骤缺失、含糊（「适当调整」）、互相矛盾，或者照做了但结果不对，原因是方法本身过时或错误。错误信息往往不是命令报错，而是 agent 写的「无法理解」「没有明确步骤」 | `无法理解任务：'故障艺术效果'没有明确步骤` | 在对应 Wiki 页面加「需要补充」标记，说明缺什么；补全页面后用 `/wiki-admin:sync-skills` 重新生成 skill | Wiki 页面 |
