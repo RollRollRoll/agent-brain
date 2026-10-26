@@ -57,6 +57,14 @@ class StaticTest(unittest.TestCase):
         self.assertEqual(val["status"], "fail")
         self.assertIn("draft.py:1", val["evidence"])
 
+    def test_只排除写着模式本身的两个文件同目录其他文件照查(self):
+        self.write(".claude/skills/verify-system/notes.md", "token: ntn_leaked\n")
+        self.write("tests/verify_system/fixture.txt", "secret_leaked\n")
+        val = self.static()["VAL-014"]
+        self.assertEqual(val["status"], "fail")
+        self.assertIn(".claude/skills/verify-system/notes.md:1", val["evidence"])
+        self.assertIn("tests/verify_system/fixture.txt:1", val["evidence"])
+
     def test_gitignore没有忽略env时VAL_014失败(self):
         self.write(".gitignore", ".env.local\n")
         val = self.static()["VAL-014"]

@@ -57,21 +57,37 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
 ## 步骤
 
-每一步结束时在会话里写一行进度，例如「VAL-001 通过（3/14 步）」。某一项失败不中止：记为 fail，继续后面的项；
+每一步结束时在会话里写一行进度，例如「VAL-001 通过（3/16 步）」。某一项失败不中止：记为 fail，继续后面的项；
 后面的项依赖它而做不了时记为 skip，`evidence` 写依赖哪一项。
 
 1. **准备**：
    - 调用 `notion-get-self` 确认连接，记下 workspace 和用户名
    - 在仓库根目录运行 `python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .`，
      把输出的 VAL-014、VAL-015 两条原样追加进 `results.json`
-   - 用 `notion-search` 查正式 Wiki「LLM Wiki 系统」：存在时记下根页面的 `page_last_edited_at`，第 13 步核对没被改过
+   - **记下正式 Wiki 的状态**，第 15 步核对验证期间没被改过。按 [定位 Wiki](../../../plugins/wiki-admin/references/locate-wiki.md)
+     第 1–3 步找正式 Wiki「LLM Wiki 系统」；不存在时跳过，在报告里写「没有正式 Wiki」。存在时记下：
+     - 根页面的 `page_last_edited_at`
+     - Wiki Index：rows 模式按「最后更新时间」降序取 1 条，记下它的最后更新时间（页面被改过会变）
+     - Sources、Agent Tasks、Wiki Changelog、Conflicts：每个库一条 SQL
+       `SELECT count(*) AS n, max(createdTime) AS latest FROM "<data source URL>"`（一条只查一个库），记下条数和最新创建时间（新增记录会变）
+
+     这 4 个库没有「最后编辑时间」字段，已有记录被改不会被发现，所以第 2 步的「每次写入前核对目标」才是主要防线，这里是兜底。
+     这一项一共 5 次查询，占 SQL / rows 额度
    - 问用户测试 Wiki 建在哪个页面下。已有「LLM Wiki 系统（测试）」时，建议用它的父页面（`<ancestor-path>` 里的上一级）
 
 2. **列出写入计划并等待确认**：一次列给用户：
    - 重建测试 Wiki：已有的「LLM Wiki 系统（测试）」会在第 3 步由 init-wiki 问是否覆盖（这一问由用户本人回答）
-   - 测试 Wiki 里要建的：Sources 3 条样本材料、ingest 生成的页面和冲突记录、1 个矛盾页面、50 个性能样本页面、
-     2 条 Agent Tasks 记录，以及对应的 Changelog；resolve-conflict 会改 1 个页面中冲突的那段
-   - 系统临时目录里的临时克隆：sync-skills 会在里面写 skill 并提交，**不推送**
+   - 测试 Wiki 的结构改动：Sources、Wiki Index 的「领域标签」新增选项 `软件开发`（第 4 步）
+   - 测试 Wiki 里要建或改的：
+     - Sources：3 条样本材料 A、B、C，ingest 会把它们的状态改为「已入库」（第 4–6 步）
+     - ingest 生成的 Wiki 页面、对应的「新建」Changelog、B 和 C 的 2 条冲突记录（第 5–6 步）
+     - resolve-conflict：改 1 个页面中冲突的那段，B 的冲突记录改为「已解决」，1 条「冲突解决」Changelog（第 7 步）
+     - 2 个互相矛盾的 concepts 页面（第 8 步）
+     - 1 个同步样本页面和 50 个性能样本页面（第 9–10 步）；改同步样本页面的第 2 步（第 11 步）
+     - Agent Tasks 2 条记录（第 12 步）；analyze-failures 回写失败记录的「反馈/问题」（第 13 步）
+   - 正式 Wiki：只读，第 1 步和第 15 步各查一次状态
+   - 系统临时目录：临时克隆（sync-skills 写 skill、`sync-metadata.json` 并提交；第 11 步手动改 1 个 skill 并提交；**不推送**），
+     以及 `results.json`
    - 「确认怎么回答」一节的代答表
 
    问：「是否按以上计划开始验证？」用户明确同意后才继续。之后每次写入前核对目标 data source 属于第 3 步的测试根页面，
@@ -106,9 +122,10 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
 7. **解决冲突（VAL-010、VAL-012）**：
    1. 按 resolve-conflict 处理 B 的事实性冲突，代答「采纳新内容」「是」。回读：页面里的发布日期改成了 B 的说法，
-      冲突记录「已解决」，Wiki Changelog 有「冲突解决」记录且详情开头有确认时间。满足为 VAL-010 pass
+      冲突记录「已解决」，Wiki Changelog 有「冲突解决」记录且详情开头有确认时间。满足为 VAL-010 pass。
+      然后读 C 的冲突记录关联的 Wiki 页面，记下它此刻的 `page_last_edited_at`：它可能和 B 的冲突是同一个页面，刚被 7.1 改过
    2. 按 resolve-conflict 处理 C 的观点性冲突，代答「两者都保留」，「是否按此修改？」代答「否」。回读：
-      页面 `page_last_edited_at` 和第 5 步记下的一致，冲突记录仍是「待审核」。和第 6 步的检查都满足为 VAL-012 pass
+      页面 `page_last_edited_at` 和 7.1 结束时记下的一致，冲突记录仍是「待审核」。和第 6 步的检查都满足为 VAL-012 pass
 
 8. **整理检查（VAL-005）**：在 Wiki Index 建两个 concepts 页面（领域标签 `软件开发`），内容取 `d-sqlite-a.md`、`d-sqlite-b.md`，
    两页对 SQLite 并发写入的说法互相矛盾。按 lint-wiki 运行，「是否自动修复」代答「否」。
@@ -128,16 +145,16 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 10. **性能同步（VAL-017）**：
     1. 运行 `verify_tools.py techniques --count 50 --prefix 性能样本`，按输出在 Wiki Index 建 50 个页面，
        每次 `notion-create-pages` 建 25 个
-    2. 记下开始时间，在克隆里按 sync-skills 运行，代答同上；第 9 步提交后结束时记下时间，差值就是 `seconds`（QOS-002）
+    2. 记下开始时间，在克隆里按 sync-skills 运行，代答同上；sync-skills 第 9 步（提交）完成后记下结束时间，差值就是 `seconds`（QOS-002）
     3. 回读：`sync-metadata.json` 新增 50 条记录，每个文件都存在。不满足时 `evidence` 写缺了哪些，耗时照填
 
 11. **同步冲突（VAL-007、VAL-013）**：
-    1. 用 `notion-update-page` 的 `update_content` 改第 9 步的页面：第 2 步的说明后面加「，结果保留两位小数」
+    1. 用 `notion-update-page` 的 `update_content` 改第 9 步建的同步样本页面：「步骤」第 2 条末尾加「，结果保留两位小数」
     2. 在克隆里改生成的 SKILL.md：「## 步骤」最后加一步「3. 把结果写进会话」，然后在克隆里提交这次修改
       （sync-skills 要求工作区干净）。记下这个文件的 `git hash-object` 和克隆的 HEAD
     3. 按 sync-skills 运行。清单里应有「skill <名> 在 Notion 和本地都被修改，需要人工合并」，代答「保留本地」
     4. VAL-007：出现了上面的提示，且这个副本的 action 是 `conflict`，为 pass
-    5. VAL-013：文件的 `git hash-object` 和第 2 步记下的一致，`git log <第 2 步的 HEAD>..HEAD -- <文件>` 没有输出，为 pass
+    5. VAL-013：文件的 `git hash-object` 和 11.2 记下的一致，`git log <11.2 记下的 HEAD>..HEAD -- <文件>` 没有输出，为 pass
 
 12. **记录任务（VAL-008、VAL-009）**：按 `tests/fixtures/record-task-demo/skills/` 的两个 skill 执行，任务结束时
     按它们「记录结果」一节，按 record-task 记到测试 Wiki：
@@ -147,7 +164,7 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
     两条的任务名、使用的 Skill、执行时间都要对
 
 13. **失败分析（VAL-011）**：按 analyze-failures 传第 12 步失败记录的链接。「是否按此修改？」代答「否」。
-    分类为「工具路径/配置错误」，修复建议要求检查或更换 skill 里的命令或路径，为 pass。`evidence` 引用建议原文。
+    分类为「工具路径/配置错误」，且修复建议包含「检查路径」（spec §4.3 的期望原文），为 pass。`evidence` 引用建议原文。
     这一步会回写这条记录的「反馈/问题」，不改 skill 文件
 
 14. **加载耗时（VAL-018）**：在系统临时目录运行 3 次，每次：
@@ -160,11 +177,13 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
     输出里 `Hello <时间戳>` 的时间戳减 `T0` 是这次的耗时，取 3 次的中位数作为 `seconds`（QOS-003）。
     `< /dev/null` 不能省：不重定向时 `claude -p` 会先等 3 秒 stdin。`evidence` 写 3 次的耗时，
-    并说明它包含启动 Claude Code 进程的时间，比在已打开的会话里加载 skill 更慢
+    并写明「耗时包含启动 Claude Code 进程的时间，比 spec 定义的从调用到开始执行更长；这样测偏严，
+    通过时真实加载时间一定也在门槛内」。报告里这一项照抄这句说明
 
 15. **汇总报告（VAL-019）**：
-    1. 用 `notion-search` 再查一次正式 Wiki「LLM Wiki 系统」：`page_last_edited_at` 和第 1 步记下的不同时，
-       在报告开头写明「正式 Wiki 在验证期间被改过」并列出时间，VAL-019 判为 fail（`report` 之后手动改）
+    1. 按第 1 步的方法再查一次正式 Wiki 的状态（根页面编辑时间、Wiki Index 最新更新时间、4 个库的条数和最新创建时间）。
+       任何一项和第 1 步记下的不同时，在报告开头写明「正式 Wiki 在验证期间被改过」，列出变化的项和前后的值，
+       VAL-019 判为 fail（`report` 之后手动改）
     2. 运行 `python3 .claude/skills/verify-system/scripts/verify_tools.py report --results <results.json>`。
        脚本按 spec 门槛重新判定 VAL-016 ~ VAL-018，没有结果的项记为 fail，再判定 VAL-019
     3. 按脚本输出在会话里列表：每行一个 VAL 项，写编号、对应的需求、通过 / 失败 / 跳过、依据；

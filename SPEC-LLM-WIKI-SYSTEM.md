@@ -983,8 +983,9 @@ claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp
 静态检查（VAL-014）：
 
 ```bash
-git grep -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md' \
-  ':!.claude/skills/verify-system/' ':!tests/verify_system/'   # 期望无输出（排除的文件里写着这些模式本身）
+git grep --untracked -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md' \
+  ':!.claude/skills/verify-system/scripts/verify_tools.py' ':!tests/verify_system/test_verify_tools.py'
+# 期望无输出；--untracked 连还没 git add 的文件一起查，排除的两个文件里写着这些模式本身
 grep -x '.env' .gitignore                  # 期望输出 .env
 ```
 

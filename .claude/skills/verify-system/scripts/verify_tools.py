@@ -11,9 +11,19 @@ from pathlib import Path
 CREDENTIAL_PATTERN = r"ntn_|secret_|NOTION_TOKEN"
 CREDENTIAL_EXCLUDES = [
     ":!SPEC-LLM-WIKI-SYSTEM.md",
-    ":!.claude/skills/verify-system/",
-    ":!tests/verify_system/",
+    ":!.claude/skills/verify-system/scripts/verify_tools.py",
+    ":!tests/verify_system/test_verify_tools.py",
 ]
+
+# spec §2.3 的性能门槛（秒），严格小于才算通过
+THRESHOLDS = {
+    "VAL-016": ("QOS-001", 30),
+    "VAL-017": ("QOS-002", 300),
+    "VAL-018": ("QOS-003", 10),
+}
+
+# VAL-019 要求 VAL-001 ~ VAL-018 每一项都有结果
+REQUIRED_IDS = [f"VAL-{n:03d}" for n in range(1, 19)]
 
 
 def check_credentials(repo):
@@ -107,14 +117,6 @@ def cmd_techniques(args):
     print()
 
 
-# spec §2.3 的性能门槛（秒），严格小于才算通过
-THRESHOLDS = {
-    "VAL-016": ("QOS-001", 30),
-    "VAL-017": ("QOS-002", 300),
-    "VAL-018": ("QOS-003", 10),
-}
-
-
 def judge_performance(item):
     """按门槛重新判定性能项；填入的 status 不作数。"""
     qos, limit = THRESHOLDS[item["id"]]
@@ -130,20 +132,16 @@ def judge_performance(item):
     return item
 
 
-# VAL-019 要求 VAL-001 ~ VAL-018 每一项都有结果
-REQUIRED = [f"VAL-{n:03d}" for n in range(1, 19)]
-
-
 def build_report(items):
     """补齐缺项、判定性能门槛，再按 VAL-001 ~ VAL-018 判定 VAL-019。"""
     by_id = {}
     for item in items:
         by_id[item["id"]] = judge_performance(item) if item["id"] in THRESHOLDS else item
-    for val_id in REQUIRED:
+    for val_id in REQUIRED_IDS:
         if val_id not in by_id:
             by_id[val_id] = {"id": val_id, "status": "fail", "evidence": "没有结果：这一项没有运行或没有记录"}
 
-    not_passed = [v for v in REQUIRED if by_id[v]["status"] != "pass"]
+    not_passed = [v for v in REQUIRED_IDS if by_id[v]["status"] != "pass"]
     if not_passed:
         by_id["VAL-019"] = {
             "id": "VAL-019",
