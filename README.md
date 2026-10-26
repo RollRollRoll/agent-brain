@@ -69,6 +69,12 @@ Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页
 成功时记结果摘要，失败时记错误信息和 agent 的分析。没有安装 wiki-admin 或记录失败时，任务结果照常返回，
 agent 会说明没能记录。
 
+### 9. 分析失败任务
+
+运行 `/wiki-admin:analyze-failures`，分析 Agent Tasks 里还没分析过的失败记录：判断失败类型，建议修改本地 skill
+或在 Wiki 页面上标记需要补充，你确认后才会修改。同一个 skill 24 小时内失败 3 次以上时，会在 Conflicts 建一条
+「高频失败」告警。也可以传记录链接或 skill 名，只分析一条或一个 skill。
+
 ## 项目结构
 
 ```
