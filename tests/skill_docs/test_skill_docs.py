@@ -26,6 +26,55 @@ class RecordTaskSkillTest(unittest.TestCase):
         self.assertTrue(meta.get("description"), "description 不能为空")
 
 
+class AnalyzeFailuresSkillTest(unittest.TestCase):
+    SKILL = WIKI_ADMIN / "skills/analyze-failures/SKILL.md"
+    TYPES = WIKI_ADMIN / "skills/analyze-failures/references/failure-types.md"
+    # ADR 0003 §2 / DEC-004 的 6 类失败
+    FAILURE_TYPES = [
+        "工具路径/配置错误",
+        "前置条件缺失",
+        "输入数据格式问题",
+        "知识不足",
+        "外部服务不可用",
+        "Skill 逻辑错误",
+    ]
+
+    def test_analyze_failures的frontmatter有name和description(self):
+        self.assertTrue(self.SKILL.is_file(), f"缺少 {self.SKILL.relative_to(ROOT)}")
+        meta = frontmatter(self.SKILL)
+        self.assertEqual(meta.get("name"), "analyze-failures")
+        self.assertTrue(meta.get("description"), "description 不能为空")
+
+    def test_分类标准的表格列出6类失败且都有修复目标(self):
+        text = self.TYPES.read_text(encoding="utf-8")
+        # 取分类表的每一行：第一列是类型，最后一列是修复目标
+        rows = {
+            cells[0]: cells[-1]
+            for cells in (
+                [c.strip() for c in line.strip("|").split("|")]
+                for line in text.splitlines()
+                if line.startswith("| ") and not line.startswith("| 类型")
+            )
+        }
+        self.assertEqual(sorted(rows), sorted(self.FAILURE_TYPES))
+        for name, target in rows.items():
+            with self.subTest(type=name):
+                self.assertIn(target, ("本地 skill", "Wiki 页面"))
+        self.assertEqual(rows["知识不足"], "Wiki 页面")
+
+    def test_告警类型在schema和skill里一致(self):
+        schema = (WIKI_ADMIN / "skills/init-wiki/references/schema.md").read_text(encoding="utf-8")
+        line = next(l for l in schema.splitlines() if l.startswith("| 冲突类型 |"))
+        self.assertIn("高频失败", line)
+        self.assertIn("'高频失败'", self.SKILL.read_text(encoding="utf-8"))
+
+    def test_修改前要用户确认(self):
+        text = self.SKILL.read_text(encoding="utf-8")
+        self.assertIn("用户确认之前不修改 skill 文件和 Wiki 页面", text)
+        self.assertIn("是否按此修改？", text)
+        self.assertIn("是否推送到 GitHub？", text)
+
+
 class SkillTemplateTest(unittest.TestCase):
     def template_body(self):
         """取 skill-template.md 里「文件内容」一节的 markdown 代码块，即生成的 SKILL.md 原样。"""

@@ -65,7 +65,7 @@
 |---|---|---|
 | 冲突摘要 | title | |
 | Wiki 页面 | relation（单向） | → Wiki Index |
-| 冲突类型 | select | 事实性、观点性、时效性、场景性、深度性、无法判断 |
+| 冲突类型 | select | 事实性、观点性、时效性、场景性、深度性、无法判断、高频失败 |
 | 新材料 | relation（单向） | → Sources |
 | 原有内容摘要 | rich_text | |
 | 新内容摘要 | rich_text | |
@@ -73,6 +73,9 @@
 | 证据强度评分 | number | |
 | 状态 | select | 待审核、待人工审核、已解决 |
 | 解决方案 | rich_text | |
+
+「高频失败」不是知识冲突，是 `/wiki-admin:analyze-failures` 建的高频失败告警（SCN-006-C）：
+同一 skill 24 小时内失败 3 次以上时记一条，只填冲突摘要、冲突类型、状态。
 
 ## 视图
 

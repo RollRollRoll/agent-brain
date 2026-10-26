@@ -64,6 +64,8 @@ Agent 执行 skill 时可能失败，原因包括：
 
 如果同一个 skill 在短时间内（如 1 天）失败多次（如 3 次以上），触发告警：
 - 在 Notion 的"Agent Tasks"数据库中标记该 skill 为"需要修复"
+  （2026-10-25 修订：告警记在 Conflicts，「冲突类型」= 高频失败，由 `analyze-failures` 运行时检测并创建，
+  不在写入 Agent Tasks 时检测；见 #12 和 `analyze-failures`）
 - 可选：暂时禁用该 skill，防止 Agent 重复调用失败的 skill
 
 ## 后果
