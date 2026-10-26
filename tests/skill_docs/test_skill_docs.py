@@ -75,6 +75,44 @@ class AnalyzeFailuresSkillTest(unittest.TestCase):
         self.assertIn("是否推送到 GitHub？", text)
 
 
+class VerifySystemSkillTest(unittest.TestCase):
+    """#13：/verify-system 的 SKILL.md 承诺的结构。"""
+
+    SKILL = ROOT / ".claude/skills/verify-system/SKILL.md"
+
+    def text(self):
+        self.assertTrue(self.SKILL.is_file(), f"缺少 {self.SKILL.relative_to(ROOT)}")
+        return self.SKILL.read_text(encoding="utf-8")
+
+    def test_verify_system的frontmatter有name和description(self):
+        self.text()
+        meta = frontmatter(self.SKILL)
+        self.assertEqual(meta.get("name"), "verify-system")
+        self.assertTrue(meta.get("description"), "description 不能为空")
+
+    def test_逐项列出VAL_001到VAL_018(self):
+        text = self.text()
+        for n in range(1, 19):
+            with self.subTest(val=f"VAL-{n:03d}"):
+                self.assertIn(f"VAL-{n:03d}", text)
+
+    def test_只用测试Wiki不碰正式Wiki(self):
+        text = self.text()
+        self.assertIn("LLM Wiki 系统（测试）", text)
+        self.assertIn("不碰正式 Wiki", text)
+
+    def test_删除测试数据前先列清单并等用户同意(self):
+        text = self.text()
+        self.assertIn("移入回收站", text)
+        self.assertIn("用户同意后", text)
+
+    def test_用辅助脚本做静态检查和汇总报告(self):
+        text = self.text()
+        for command in ("verify_tools.py static", "verify_tools.py techniques", "verify_tools.py report"):
+            with self.subTest(command=command):
+                self.assertIn(command, text)
+
+
 class SkillTemplateTest(unittest.TestCase):
     def template_body(self):
         """取 skill-template.md 里「文件内容」一节的 markdown 代码块，即生成的 SKILL.md 原样。"""

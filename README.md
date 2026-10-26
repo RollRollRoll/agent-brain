@@ -75,18 +75,76 @@ agent 会说明没能记录。
 或在 Wiki 页面上标记需要补充，你确认后才会修改。同一个 skill 24 小时内失败 3 次以上时，会在 Conflicts 建一条
 「高频失败」告警。也可以传记录链接或 skill 名，只分析一条或一个 skill。
 
+## 命令一览
+
+| 命令 | 做什么 | 会改 Notion 吗 |
+|---|---|---|
+| `/wiki-admin:init-wiki` | 建 Wiki 结构，或建测试 Wiki | 会；已存在时先问是否覆盖 |
+| `/wiki-admin:ingest` | 把 Sources 里待处理的材料提炼成 Wiki 页面 | 你确认后才写 |
+| `/wiki-admin:resolve-conflict <冲突>` | 处理一条冲突；`history <页面>` 查变更历史 | 你选了处理方式并确认后才改 |
+| `/wiki-admin:lint-wiki` | 检查矛盾、过时、缺失链接、孤岛页面 | 只有你确认的缺失链接会补上 |
+| `/wiki-admin:sync-skills` | 把 techniques 页面同步成 skill，提交到本仓库 | 不改 Notion；写文件和推送前都会问 |
+| `/wiki-admin:record-task` | 记录一次任务结果（生成的 skill 会自动调用） | 写一条 Agent Tasks |
+| `/wiki-admin:analyze-failures` | 分析失败记录，建议修 skill 或补 Wiki | 每处修改都要你确认 |
+
+所有命令都可以加一句「测试 Wiki」，改为操作「LLM Wiki 系统（测试）」。
+
+## 验证整个系统
+
+在本仓库目录里打开 Claude Code，运行 `/verify-system`（项目级 skill，不随 plugin 发布）。它会：
+
+1. 在你指定的页面下重建「LLM Wiki 系统（测试）」，不碰正式 Wiki
+2. 用 [`tests/fixtures/verify-demo/samples/`](tests/fixtures/verify-demo/samples/) 的样本依次运行上面的命令，
+   用回读结果逐项判定 spec §4.3 的 VAL-001 ~ VAL-018，并实测入库、同步 50 个 skill、加载 skill 的耗时
+3. 输出每一项的通过 / 失败和依据（VAL-019）
+4. 最后列出要移入回收站的测试页面和临时目录，你同意后才删除
+
+开始前它会列出全部写入计划，你同意一次后，各命令中途的确认按固定剧本代答；覆盖和删除仍然每次问你。
+同步写到系统临时目录的一份克隆里，不会推送。
+
+只想跑不需要 Notion 的检查：
+
+```bash
+python3 -m unittest discover -s tests -t .
+python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .
+```
+
+## 常见问题
+
+**`notion-*` 工具不出现**：确认 `claude mcp list` 里有 notion，运行 `/mcp` 重新登录，然后重启会话。
+
+**提示「还没有这个 Wiki」**：先运行 `/wiki-admin:init-wiki`。如果 Wiki 已经建过，检查根页面标题是否被改过，
+命令靠「LLM Wiki 系统」这个标题找到它；改回原标题即可。
+
+**提示找到多个 Wiki**：工作区里有不止一个同名根页面。按提示选一个，或把多余的移入回收站。
+
+**遇到 `rate_limited`**：命令会按 Notion 返回的等待时间重试一次，还失败就停下并列出已完成的部分，稍后重新运行即可。
+
+**遇到 `usage_limit_reached`**：非 Business 套餐的 SQL / rows 查询额度用完了，60 分钟内会重置，重置后重新运行。
+
+**sync-skills 提示「需要人工合并」**：这个 skill 在 Notion 和本地都改过。对比两边的差异，把要保留的改动合进本地文件，
+再运行一次，选「本地已经合并好」。
+
+**安装后看不到新 skill**：运行 `/plugin marketplace update agent-brain`，再 `/reload-plugins`。
+新领域的 plugin 要先用 `/plugin` 安装一次。
+
+**记录任务时提示「没能记录到 Agent Tasks」**：任务本身不受影响。按提示给出的内容，稍后用 `/wiki-admin:record-task` 补记。
+
 ## 项目结构
 
 ```
 agent-brain/
 ├── .claude-plugin/
 │   └── marketplace.json  # marketplace 目录
+├── .claude/skills/
+│   └── verify-system/    # 端到端验证（项目级，不发布）
 ├── plugins/
 │   ├── wiki-admin/       # 维护 Wiki 的命令
 │   └── <领域>/            # 从 Wiki 生成的专业 skill（/sync-skills 生成）
 ├── docs/
 │   ├── adr/              # 架构决策记录
 │   └── agents/           # agent-toolkit 配置
+├── tests/                # 单元测试和验证样本
 ├── GLOSSARY.md           # 领域术语
 └── SPEC-LLM-WIKI-SYSTEM.md
 ```

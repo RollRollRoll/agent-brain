@@ -983,13 +983,22 @@ claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp
 静态检查（VAL-014）：
 
 ```bash
-git grep -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md'   # 期望无输出
+git grep --untracked -nE 'ntn_|secret_|NOTION_TOKEN' -- ':!SPEC-LLM-WIKI-SYSTEM.md' \
+  ':!.claude/skills/verify-system/scripts/verify_tools.py' ':!tests/verify_system/test_verify_tools.py'
+# 期望无输出；--untracked 连还没 git add 的文件一起查，排除的两个文件里写着这些模式本身
 grep -x '.env' .gitignore                  # 期望输出 .env
 ```
 
-Notion 相关的验证项没有 shell 命令，在 Claude Code 会话中运行对应 skill 完成。
-目前已有的是 `/init-wiki`（VAL-001），其余随各工单的 skill 补充；端到端编排见 #13（VAL-019）。
-纯逻辑出现代码后，在这里补上对应的测试命令。
+VAL-014、VAL-015 也可以用 `python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .` 一起检查。
+
+纯逻辑和文档约束的单元测试：
+
+```bash
+python3 -m unittest discover -s tests -t .
+```
+
+Notion 相关的验证项没有 shell 命令，在 Claude Code 会话中运行 `/verify-system`（`.claude/skills/verify-system/SKILL.md`），
+它在测试 Wiki 里依次运行各命令，逐项核对 VAL-001 ~ VAL-018 并输出报告（VAL-019）。
 
 ### 4.6 Completion Criteria
 

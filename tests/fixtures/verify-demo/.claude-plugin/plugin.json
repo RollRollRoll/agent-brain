@@ -1,0 +1,9 @@
+{
+  "name": "verify-demo",
+  "description": "#13 验证用：测量 agent 加载 skill 的耗时（VAL-018 / QOS-003）。不发布到 marketplace",
+  "author": {
+    "name": "RollRollRoll"
+  },
+  "repository": "https://github.com/RollRollRoll/agent-brain",
+  "license": "Apache-2.0"
+}
