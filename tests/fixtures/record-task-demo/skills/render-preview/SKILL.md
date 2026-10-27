@@ -31,8 +31,8 @@ description: 用 wikirender 把 Markdown 文件渲染成 HTML 预览。用户要
 
 ## 记录结果
 
-开始第 1 步前记下开始时间。任务结束后，不论成功还是失败，先把结果告诉用户，再用 Skill 工具调用
-`wiki-admin:record-task`，参数写明：任务名、使用的 Skill（`record-task-demo:render-preview`）、开始和结束时间、
+开始第 1 步前记下开始时间。任务结束后，不论成功还是失败，先把结果告诉用户，再调用 skill
+`wiki-admin:record-task`（Claude Code 用 Skill 工具；Codex 读取它的 SKILL.md 照做），参数写明：任务名、使用的 Skill（`record-task-demo:render-preview`）、开始和结束时间、
 状态（成功 / 失败）、成功时的结果摘要，或失败时的失败步骤、错误信息原文和你对原因的分析。
 
 - `wiki-admin:record-task` 不可用（没有安装 wiki-admin）或记录失败时，不影响任务结果，

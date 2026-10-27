@@ -6,6 +6,8 @@
 
 ## 快速开始
 
+Claude Code 和 Codex 都能用，两边加载同一套 skill（ADR 0010）。下面先写 Claude Code 的做法，Codex 见各节末尾。
+
 ### 1. 安装 Notion MCP
 
 ```bash
@@ -14,15 +16,19 @@ claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp
 
 `--scope user` 让所有项目都能用这个 MCP，agent 在其他项目里执行任务时也能查询知识库。
 
+Codex：`codex mcp add notion --url https://mcp.notion.com/mcp`，写进 `~/.codex/config.toml`，所有项目都能用。
+
 ### 2. 登录
 
 在 Claude Code 中运行 `/mcp`，选择 notion，按提示完成 OAuth 登录。MCP 以你本人的 Notion 权限操作，不需要 token 或 `.env`。
 
 如果登录后 `notion-*` 工具没出现，重启 Claude Code 会话。
 
+Codex：运行 `codex mcp login notion` 完成 OAuth 登录，再新开会话。
+
 ### 3. 安装 plugin
 
-本仓库是一个 Claude Code plugin marketplace。在任意目录运行：
+本仓库是一个 plugin marketplace。在任意目录运行：
 
 ```bash
 claude plugin marketplace add RollRollRoll/agent-brain
@@ -34,6 +40,16 @@ claude plugin install wiki-admin@agent-brain
 
 仓库有新提交后，运行 `/plugin marketplace update agent-brain` 再 `/reload-plugins` 获取更新；
 也可以在 `/plugin` 的 Marketplaces 里为 agent-brain 打开自动更新。
+
+Codex：
+
+```bash
+codex plugin marketplace add RollRollRoll/agent-brain
+codex plugin add wiki-admin@agent-brain
+```
+
+领域 plugin 可以在 Codex 的 `/plugins` 里浏览安装。仓库有新提交后运行 `codex plugin marketplace upgrade agent-brain`，
+再新开会话。Codex 里调用命令把 `/` 换成 `$`，例如 `$wiki-admin:ingest`，也可以直接用自然语言说要做什么。
 
 ### 4. 初始化 Wiki
 
@@ -126,7 +142,8 @@ python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .
 再运行一次，选「本地已经合并好」。
 
 **安装后看不到新 skill**：运行 `/plugin marketplace update agent-brain`，再 `/reload-plugins`。
-新领域的 plugin 要先用 `/plugin` 安装一次。
+新领域的 plugin 要先用 `/plugin` 安装一次。Codex 运行 `codex plugin marketplace upgrade agent-brain` 后新开会话，
+新领域 plugin 用 `codex plugin add <plugin>@agent-brain` 安装。
 
 **记录任务时提示「没能记录到 Agent Tasks」**：任务本身不受影响。按提示给出的内容，稍后用 `/wiki-admin:record-task` 补记。
 
@@ -135,11 +152,13 @@ python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .
 ```
 agent-brain/
 ├── .claude-plugin/
-│   └── marketplace.json  # marketplace 目录
+│   └── marketplace.json  # Claude Code 的 marketplace 目录
+├── .agents/plugins/
+│   └── marketplace.json  # Codex 的 marketplace 目录
 ├── .claude/skills/
 │   └── verify-system/    # 端到端验证（项目级，不发布）
 ├── plugins/
-│   ├── wiki-admin/       # 维护 Wiki 的命令
+│   ├── wiki-admin/       # 维护 Wiki 的命令（.claude-plugin/ 和 .codex-plugin/ 各一份清单）
 │   └── <领域>/            # 从 Wiki 生成的专业 skill（/sync-skills 生成）
 ├── docs/
 │   ├── adr/              # 架构决策记录

@@ -14,6 +14,7 @@ related_adrs:
   - docs/adr/0007-wiki-pages-in-wiki-index.md
   - docs/adr/0008-locate-wiki-by-notion.md
   - docs/adr/0009-repo-as-plugin-marketplace.md
+  - docs/adr/0010-codex-plugin-support.md
 last_updated: 2026-10-22
 ```
 
@@ -100,9 +101,9 @@ last_updated: 2026-10-22
 **技术栈约束**：
 - 必须使用 Notion 作为 Wiki 存储（用户不愿安装 Obsidian）
 - 必须通过 Notion 官方 MCP server 访问 Notion（https://mcp.notion.com/mcp）
-- 必须使用 Claude Code 作为 LLM 和 Agent 运行环境
-- Skill 必须符合 Claude Code skill 规范（SKILL.md + frontmatter）
-- Skill 仓库必须是 `git@github.com:RollRollRoll/agent-brain.git`，以 plugin marketplace 形式发布（ADR 0009）
+- 必须使用 Claude Code 作为 LLM 和 Agent 运行环境；Codex 也能加载同一套 plugin（ADR 0010）
+- Skill 必须符合 Claude Code skill 规范（SKILL.md + frontmatter），并能被 Codex 加载
+- Skill 仓库必须是 `git@github.com:RollRollRoll/agent-brain.git`，以 plugin marketplace 形式发布（ADR 0009），同时提供 Claude Code 和 Codex 的清单（ADR 0010）
 - 系统命令放在 `plugins/wiki-admin/`，调用时带前缀，如 `/wiki-admin:ingest`
 
 **访问约束**（ADR 0006）：

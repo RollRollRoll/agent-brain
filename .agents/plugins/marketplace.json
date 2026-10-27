@@ -1,0 +1,20 @@
+{
+  "name": "agent-brain",
+  "interface": {
+    "displayName": "Agent Brain"
+  },
+  "plugins": [
+    {
+      "name": "wiki-admin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/wiki-admin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

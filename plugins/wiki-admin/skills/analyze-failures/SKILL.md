@@ -72,7 +72,8 @@ description: 分析 Agent Tasks 中的失败记录：归到 6 类失败之一，
    - **改 skill**（SCN-008-A）：
      1. `git status --porcelain` 显示这个文件有未提交改动时停下，请用户先处理
      2. 只改建议里的那几行，不顺手改别的
-     3. 文件在 `plugins/` 下时运行 `claude plugin validate .`，只有「No version specified」警告可以忽略
+     3. 文件在 `plugins/` 下、且有 `claude` 命令时运行 `claude plugin validate .`，只有「No version specified」警告可以忽略；
+        没有 `claude` 命令（例如在 Codex 里运行）时跳过
      4. 只 `git add` 这个文件，提交信息 `fix(skills): 修复 <skill 名> 的<失败类型>`，正文写失败记录链接、错误信息摘要、改了什么
      5. 问用户「是否推送到 GitHub？」，同意才 `git push`；推送失败时停下，提示先 `git pull --rebase`，不要强推
      6. 这个 skill 在 `sync-metadata.json` 里有记录时提醒用户：`/wiki-admin:sync-skills` 会把它当作本地改过，

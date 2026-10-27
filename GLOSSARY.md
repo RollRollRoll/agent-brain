@@ -29,7 +29,7 @@ Wiki 中的一个知识点，就是 Wiki Index 数据库的一条记录：正文
 concepts/、techniques/、tools/ 分类页面只是按「分类」筛选的视图，不是 Wiki 页面的存放位置。
 
 ### Skill
-从 Wiki 的 Techniques 中提炼出的可执行技能，格式符合 Claude Code skill 规范。
+从 Wiki 的 Techniques 中提炼出的可执行技能，格式符合 Claude Code skill 规范，Codex 也能加载同一份文件（ADR 0010）。
 
 **关键区别**：
 - **Wiki Technique**：面向人类学习，包含背景、原理、案例（存储在 Notion）
@@ -120,12 +120,16 @@ concepts/、techniques/、tools/ 分类页面只是按「分类」筛选的视�
 
 ### Git / GitHub
 - **职责**：版本控制 Skill 仓库（`git@github.com:RollRollRoll/agent-brain.git`），仓库本身是名为 `agent-brain` 的 plugin marketplace（ADR 0009）
-- **内容**：Claude Code skill 文件、系统管理 skill（如 `/init-wiki`、`/ingest`）
+- **内容**：skill 文件、系统管理 skill（如 `/init-wiki`、`/ingest`）；Claude Code 和 Codex 各有一套 marketplace 和 plugin 清单（ADR 0010）
 - **可见性**：待定（公开或私有）
 
 ### Claude Code
 - **职责**：运行 LLM 和 Agent，连接 Notion（通过 MCP）和本地文件系统
 - **配置**：`claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录
+
+### Codex
+- **职责**：和 Claude Code 相同，加载同一套 plugin（ADR 0010）
+- **配置**：`codex mcp add notion --url https://mcp.notion.com/mcp`，再 `codex mcp login notion`；命令写作 `$wiki-admin:ingest`
 
 ## 相关链接
 

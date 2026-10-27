@@ -1,5 +1,6 @@
 """skill 文档约束测试：只读仓库里的 SKILL.md 和模板，检查它们承诺的结构。"""
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -160,6 +161,45 @@ class RateLimitHandlingTest(unittest.TestCase):
                     "retry_after_seconds" in text or "notion-tools.md" in text,
                     "没有写按 retry_after_seconds 等待重试，也没有引用 notion-tools.md",
                 )
+
+
+class MarketplaceManifestTest(unittest.TestCase):
+    """ADR 0010：Claude Code 和 Codex 两套 marketplace 列出同一批 plugin，每个 plugin 都有两份清单。"""
+
+    CLAUDE_MARKETPLACE = ROOT / ".claude-plugin/marketplace.json"
+    CODEX_MARKETPLACE = ROOT / ".agents/plugins/marketplace.json"
+
+    def load(self, path):
+        self.assertTrue(path.is_file(), f"缺少 {path.relative_to(ROOT)}")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_两套marketplace名称相同(self):
+        self.assertEqual(self.load(self.CLAUDE_MARKETPLACE)["name"], "agent-brain")
+        self.assertEqual(self.load(self.CODEX_MARKETPLACE)["name"], "agent-brain")
+
+    def test_两套marketplace列出同一批plugin且路径一致(self):
+        claude = {p["name"]: p["source"] for p in self.load(self.CLAUDE_MARKETPLACE)["plugins"]}
+        codex = {p["name"]: p["source"] for p in self.load(self.CODEX_MARKETPLACE)["plugins"]}
+        self.assertEqual(sorted(claude), sorted(codex))
+        for name, source in codex.items():
+            with self.subTest(plugin=name):
+                self.assertEqual(source.get("source"), "local")
+                self.assertEqual(source.get("path"), claude[name])
+
+    def test_每个plugin都有两份清单且字段一致(self):
+        plugins = sorted(p.parent for p in ROOT.glob("plugins/*/skills"))
+        self.assertTrue(plugins, "plugins/ 下没有 plugin")
+        for plugin in plugins:
+            with self.subTest(plugin=plugin.name):
+                claude = self.load(plugin / ".claude-plugin/plugin.json")
+                codex = self.load(plugin / ".codex-plugin/plugin.json")
+                self.assertEqual(claude["name"], plugin.name)
+                for key in ("name", "description", "author", "repository", "license"):
+                    self.assertEqual(codex.get(key), claude.get(key), f"{key} 不一致")
+                self.assertEqual(codex.get("skills"), "./skills/")
+                # ADR 0009：不写 version，版本跟着 commit 走
+                self.assertNotIn("version", claude)
+                self.assertNotIn("version", codex)
 
 
 if __name__ == "__main__":
