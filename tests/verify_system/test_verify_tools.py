@@ -158,12 +158,12 @@ class ReportTest(unittest.TestCase):
         return {r["id"]: r for r in report["results"]}
 
     def test_性能项按spec门槛判定而不是按填入的状态(self):
-        # 门槛：QOS-001 入库 < 30 秒，QOS-002 同步 < 5 分钟，QOS-003 加载 < 10 秒
+        # 门槛：QOS-001 入库 < 5 分钟，QOS-002 同步 < 20 分钟，QOS-003 加载 < 10 秒
         report = self.by_id(
             self.report(
                 [
-                    {"id": "VAL-016", "status": "pass", "evidence": "入库 3000 字", "seconds": 31},
-                    {"id": "VAL-017", "status": "fail", "evidence": "同步 50 个", "seconds": 299},
+                    {"id": "VAL-016", "status": "pass", "evidence": "入库 3000 字", "seconds": 301},
+                    {"id": "VAL-017", "status": "fail", "evidence": "同步 50 个", "seconds": 1199},
                     {"id": "VAL-018", "status": "pass", "evidence": "加载 hello", "seconds": 10},
                 ]
             )
@@ -171,8 +171,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(report["VAL-016"]["status"], "fail")
         self.assertEqual(report["VAL-017"]["status"], "pass")
         self.assertEqual(report["VAL-018"]["status"], "fail", "门槛是小于 10 秒，等于不算通过")
-        self.assertIn("31", report["VAL-016"]["evidence"])
-        self.assertIn("30", report["VAL-016"]["evidence"])
+        self.assertIn("301", report["VAL-016"]["evidence"])
+        self.assertIn("300", report["VAL-016"]["evidence"])
 
     def all_pass(self):
         """VAL-001 ~ VAL-018 全部通过，性能项耗时都在门槛内。"""
