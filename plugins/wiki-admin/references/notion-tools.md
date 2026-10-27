@@ -6,8 +6,11 @@ wiki-admin 中调用 `notion-*` 工具的 skill 都按本文处理前置条件�
 
 ## 前置条件
 
-`notion-*` 工具不可用时，停下来告诉用户：运行
-`claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录；
+`notion-*` 工具不可用时，停下来，按当前运行环境告诉用户怎么装：
+
+- Claude Code：运行 `claude mcp add --transport http --scope user notion https://mcp.notion.com/mcp`，再用 `/mcp` 登录
+- Codex：运行 `codex mcp add notion --url https://mcp.notion.com/mcp`，再运行 `codex mcp login notion`
+
 工具仍不出现就重启会话。
 
 ## 写入注意事项（2026-10-22 实测）

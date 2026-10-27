@@ -1,6 +1,6 @@
 ---
 name: sync-skills
-description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具和前置条件的页面同步成 Claude Code skill，按领域放进 agent-brain 仓库的 plugin；新增、更新、删除前列清单确认，本地改过的 skill 提示人工合并而不覆盖。用户要求把 Wiki 同步成 skill 时使用。
+description: 把 Wiki 中分类为 techniques、写明了步骤、所需工具和前置条件的页面同步成 agent skill，按领域放进 agent-brain 仓库的 plugin；新增、更新、删除前列清单确认，本地改过的 skill 提示人工合并而不覆盖。用户要求把 Wiki 同步成 skill 时使用。
 ---
 
 # sync-skills
@@ -72,7 +72,7 @@ Notion 一侧仍按 DEC-003 比较最后编辑时间。
 1. **确认仓库**：skill 以 plugin 安装后运行的是缓存副本，不能往里写（ADR 0009）。检查当前目录：
    - `git remote get-url origin` 指向 `RollRollRoll/agent-brain`，且有 `.claude-plugin/marketplace.json`：用当前目录
    - 不是：问用户本地 agent-brain 仓库的路径，不保存配置
-   - `git status --porcelain` 显示 `plugins/`、`.claude-plugin/`、`sync-metadata.json` 下有未提交改动：停下，
+   - `git status --porcelain` 显示 `plugins/`、`.claude-plugin/`、`.agents/plugins/`、`sync-metadata.json` 下有未提交改动：停下，
      请用户先提交或暂存，避免和生成结果混在一起
 
 2. **定位 Wiki**：按 [定位 Wiki](../../references/locate-wiki.md) 找到根页面，取出 Wiki Index 的 data source ID 和数据库 URL。
@@ -144,9 +144,14 @@ Notion 一侧仍按 DEC-003 比较最后编辑时间。
    用户没回答、回答不明确的，一律按默认处理：保留本地，不改文件，也不改它的记录。用户全部拒绝时结束，不做任何修改。
 
 7. **写文件**：
-   1. 新领域 plugin：建 `plugins/<plugin>/.claude-plugin/plugin.json`，字段照 `plugins/wiki-admin/.claude-plugin/plugin.json`
-      （`name`、`description`、`author`、`repository`、`license`、`keywords`），**不写 `version`**（ADR 0009）。
-      在 `.claude-plugin/marketplace.json` 的 `plugins` 里加一条：`name`、`source`（`./plugins/<plugin>`）、`description`、`category`
+   1. 新领域 plugin：Claude Code 和 Codex 的清单都要建（ADR 0010），**都不写 `version`**（ADR 0009）。
+      - 建 `plugins/<plugin>/.claude-plugin/plugin.json`，字段照 `plugins/wiki-admin/.claude-plugin/plugin.json`
+        （`name`、`description`、`author`、`repository`、`license`、`keywords`）。
+        在 `.claude-plugin/marketplace.json` 的 `plugins` 里加一条：`name`、`source`（`./plugins/<plugin>`）、`description`、`category`
+      - 建 `plugins/<plugin>/.codex-plugin/plugin.json`，字段照 `plugins/wiki-admin/.codex-plugin/plugin.json`：
+        前六个字段和上面相同，`skills` 写 `./skills/`，`interface` 的 `displayName`、`shortDescription`、`longDescription`
+        按这个领域写，`defaultPrompt` 删掉。在 `.agents/plugins/marketplace.json` 的 `plugins` 里加一条，
+        格式照 wiki-admin 那条，`source.path` 写 `./plugins/<plugin>`
    2. 新增、更新、用户选了覆盖的冲突：写 `plugins/<plugin>/skills/<skill 名>/SKILL.md`，模板注释里的同步时间写 `T0`。
       每写完一个，运行 `python3 <本 skill 目录>/scripts/sync_state.py record --page-id <ID> --skill-path <路径> --synced-at <T0> --repo .`。
       用户选了「本地已经合并好」的冲突：不写文件，只运行同样的 `record`
@@ -159,8 +164,11 @@ Notion 一侧仍按 DEC-003 比较最后编辑时间。
    `record` 用 `T0` 而不用写完文件的时间：读页面之后、写文件之前 Notion 又被改了的话，下次同步还能发现。
 
 8. **校验**：
-   - 运行 `claude plugin validate .`（仓库根目录）：marketplace 和每个 plugin 都要通过。
-     只有「No version specified」警告可以忽略（ADR 0009 不写 version），其他警告和错误要修好再继续
+   - 运行 `python3 -m unittest tests.skill_docs.test_skill_docs`（仓库根目录）：检查两套 marketplace 列的 plugin 一致、
+     每个 plugin 都有两份清单，要全部通过
+   - 有 `claude` 命令时运行 `claude plugin validate .`（仓库根目录）：marketplace 和每个 plugin 都要通过。
+     只有「No version specified」警告可以忽略（ADR 0009 不写 version），其他警告和错误要修好再继续。
+     没有 `claude` 命令（例如在 Codex 里运行）时跳过，在汇报里说明
    - 检查每个 SKILL.md 的 frontmatter 有 `name`、`description`，`name` 和所在目录名一致
    - `sync-metadata.json` 能被 `python3 -m json.tool` 解析，每条记录的 `skill_path` 文件存在
    - 再运行一次第 5 步的 `plan`（用同一份页面状态 JSON）：本次写入或标记合并的副本应该都是 `unchanged`，删除的副本不再出现，
@@ -171,8 +179,9 @@ Notion 一侧仍按 DEC-003 比较最后编辑时间。
    `feat(skills): 从 Wiki 同步 skill（新增 <a>，更新 <b>，删除 <c>）`，正文列出每个 skill、对应的 Notion 页面和动作；
    保留下来的冲突和待删除也列在正文里。没有任何文件变化时不提交。
 
-10. **推送**：问用户「是否推送到 GitHub？」，说明推送后 marketplace 的使用者运行
-    `/plugin marketplace update agent-brain` 就能拿到新 skill。用户同意才 `git push`。
+10. **推送**：问用户「是否推送到 GitHub？」，说明推送后 marketplace 的使用者在 Claude Code 运行
+    `/plugin marketplace update agent-brain`、在 Codex 运行 `codex plugin marketplace upgrade agent-brain`，就能拿到新 skill。
+    用户同意才 `git push`。
     推送失败（远端有新提交）时停下，提示用户先 `git pull --rebase`，再重新推送，不要强推。
 
 ## 失败处理
