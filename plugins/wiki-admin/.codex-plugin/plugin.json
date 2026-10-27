@@ -1,0 +1,24 @@
+{
+  "name": "wiki-admin",
+  "description": "维护 Notion 上的 LLM Wiki：初始化结构、入库原始材料、整理检查、把 Wiki 中的方法同步成 skill、记录 agent 任务结果并分析失败",
+  "author": {
+    "name": "RollRollRoll"
+  },
+  "repository": "https://github.com/RollRollRoll/agent-brain",
+  "license": "Apache-2.0",
+  "keywords": ["notion", "llm-wiki", "knowledge-base"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Wiki Admin",
+    "shortDescription": "维护 Notion 上的 LLM Wiki",
+    "longDescription": "初始化 Wiki 结构、把 Sources 中的材料入库、处理知识冲突、检查 Wiki 健康度、把 techniques 页面同步成 skill、记录 agent 任务结果并分析失败。通过 Notion 托管 MCP 访问 Notion。",
+    "developerName": "RollRollRoll",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "把 Sources 里待处理的材料入库。",
+      "检查一下 Wiki 的健康度。",
+      "把 Wiki 同步成 skill。"
+    ]
+  }
+}
