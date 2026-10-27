@@ -15,8 +15,8 @@ wiki-admin 中调用 `notion-*` 工具的 skill 都按本文处理前置条件�
 - **multi_select 选项必须先存在**：写入不存在的选项会报 `validation_error`。写入前对比 data source 已有选项，
   缺的用 `notion-update-data-source` 加上：`ALTER COLUMN "领域标签" SET MULTI_SELECT('已有选项':颜色, '新选项':颜色)`，
   **必须列出全部已有选项**，漏掉的会被删除。新增选项要先列给用户确认。
-- **文件名会被识别成链接**：正文和属性里写 `index.md` 这类"名字.后缀"时，Notion 会自动转成 `http://index.md` 链接。
-  一律用反引号包起来，例如 `` `index.md` ``。
+- **文件名和域名会被识别成链接**：正文和属性里写 `index.md` 这类"名字.后缀"或 `python.org` 这类域名时，
+  Notion 会自动转成 `http://index.md`、`[python.org](http://python.org)` 链接。一律用反引号包起来，例如 `` `index.md` ``（2026-10-27 实测域名也会转）。
 - **页面提及**：写 `<mention url="页面 URL" />`。
 - **relation 和 multi_select 属性**：值是 JSON 数组字符串，例如 `"[\"https://app.notion.com/p/...\"]"`。
 - **批量创建**：同一 data source 下的多个页面可以在一次 `notion-create-pages` 中创建。
