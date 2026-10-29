@@ -61,6 +61,23 @@ class InitWikiSkillTest(unittest.TestCase):
         self.assertIn(".agent-brain/", lines)
 
 
+class IngestSkillTest(unittest.TestCase):
+    """领域标签为空时 ingest 根据内容推断，经用户确认后写入。"""
+
+    SKILL = WIKI_ADMIN / "skills/ingest/SKILL.md"
+
+    def test_领域标签为空时推断并列入确认清单(self):
+        text = self.SKILL.read_text(encoding="utf-8")
+        self.assertIn("**推断领域标签**", text)
+        self.assertIn("用户填了的不改", text)
+        confirm = text.split("**展示建议并等待确认**", 1)[1].split("**写入**", 1)[0]
+        self.assertIn("推断的领域标签", confirm)
+
+    def test_步骤编号连续(self):
+        numbers = [int(n) for n in re.findall(r"^(\d+)\. \*\*", self.SKILL.read_text(encoding="utf-8"), re.M)]
+        self.assertEqual(numbers, list(range(1, len(numbers) + 1)))
+
+
 class AnalyzeFailuresSkillTest(unittest.TestCase):
     SKILL = WIKI_ADMIN / "skills/analyze-failures/SKILL.md"
     TYPES = WIKI_ADMIN / "skills/analyze-failures/references/failure-types.md"
