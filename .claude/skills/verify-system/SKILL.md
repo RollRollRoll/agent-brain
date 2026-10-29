@@ -8,7 +8,7 @@ description: 端到端验证 LLM Wiki 系统：在测试 Wiki 里依次运行 wi
 在「LLM Wiki 系统（测试）」里真实运行 wiki-admin 的命令，用 `notion-fetch` 回读结果，按 spec §4.3 逐项判定。
 本 skill 是 agent-brain 仓库的项目级 skill，只在这个仓库里用，不发布到 marketplace。
 
-**只用测试 Wiki，不碰正式 Wiki「LLM Wiki 系统」。** 验证用的同步写到临时克隆里，不写当前仓库，不推送。
+**只用测试 Wiki，不碰正式 Wiki。** 验证用的同步写到临时克隆里，不写当前仓库，不推送。
 **删除任何东西（旧测试 Wiki、测试数据、临时克隆）都要用户本人同意，不代答。**
 
 调用 `notion-*` 工具的前置条件、写入格式和报错处理见 [Notion 工具使用约定](../../../plugins/wiki-admin/references/notion-tools.md)。
@@ -26,6 +26,8 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
 | 命令 | 问题 | 代答 |
 |---|---|---|
+| init-wiki | 「Wiki 根页面用哪个？」「登记到哪里？」 | 新建页面，父页面和标题见第 3 步；只登记当前项目 |
+| init-wiki | 已能找到测试 Wiki 时「要怎么做？」 | 选 1 覆盖时转给用户本人确认；用户不想覆盖时选 2 |
 | init-wiki | 第二次运行的「是否覆盖？」 | 否 |
 | ingest | 「是否按以上建议写入？」、新增 multi_select 选项 | 是 |
 | lint-wiki | 「是否自动修复以上缺失链接？」 | 否（VAL-005 只看报告） |
@@ -65,7 +67,7 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
    - 在仓库根目录运行 `python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .`，
      把输出的 VAL-014、VAL-015 两条原样追加进 `results.json`
    - **记下正式 Wiki 的状态**，第 15 步核对验证期间没被改过。按 [定位 Wiki](../../../plugins/wiki-admin/references/locate-wiki.md)
-     第 1–3 步找正式 Wiki「LLM Wiki 系统」；不存在时跳过，在报告里写「没有正式 Wiki」。存在时记下：
+     第 1–3 步找正式 Wiki（本仓库或用户目录的登记）；没有登记时跳过，在报告里写「没有正式 Wiki」。存在时记下：
      - 根页面的 `page_last_edited_at`
      - Wiki Index：rows 模式按「最后更新时间」降序取 1 条，记下它的最后更新时间（页面被改过会变）
      - Sources、Agent Tasks、Wiki Changelog、Conflicts：每个库一条 SQL
@@ -73,10 +75,11 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
      这 4 个库没有「最后编辑时间」字段，已有记录被改不会被发现，所以第 2 步的「每次写入前核对目标」才是主要防线，这里是兜底。
      这一项一共 5 次查询，占 SQL / rows 额度
-   - 问用户测试 Wiki 建在哪个页面下。已有「LLM Wiki 系统（测试）」时，建议用它的父页面（`<ancestor-path>` 里的上一级）
+   - 问用户测试 Wiki 建在哪个页面下。登记文件里已有测试 Wiki 时，建议用它根页面的父页面（`<ancestor-path>` 里的上一级）
 
 2. **列出写入计划并等待确认**：一次列给用户：
-   - 重建测试 Wiki：已有的「LLM Wiki 系统（测试）」会在第 3 步由 init-wiki 问是否覆盖（这一问由用户本人回答）
+   - 重建测试 Wiki：登记过的测试 Wiki 会在第 3 步由 init-wiki 问是否覆盖（这一问由用户本人回答）；
+     新的测试根页面只写进本仓库 `.agent-brain/wiki.json` 的 `test` 记录，`production` 记录和用户目录的登记文件都不动
    - 测试 Wiki 的结构改动：Sources、Wiki Index 的「领域标签」新增选项 `软件开发`（第 4 步）
    - 测试 Wiki 里要建或改的：
      - Sources：3 条样本材料 A、B、C，ingest 会把它们的状态改为「已入库」（第 4–6 步）
@@ -94,7 +97,8 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
    属于别的根页面就停下。
 
 3. **建测试 Wiki（VAL-001）**：
-   1. 按 init-wiki 建「LLM Wiki 系统（测试）」，父页面用第 1 步用户给的页面。问是否覆盖旧测试 Wiki 时转给用户本人
+   1. 按 init-wiki 建测试 Wiki：选根页面时代答「新建页面」，父页面用第 1 步用户给的页面，标题用默认的「LLM Wiki 系统（测试）」。
+      问是否覆盖旧测试 Wiki 时转给用户本人
    2. 按 init-wiki 第 8 步回读：5 个数据库的字段、类型、select 选项、relation 目标和 schema.md 一致；
       Sources 有「按状态」board 视图、Wiki Index 有「知识卡片」gallery 视图；3 个分类页面在。记下根页面的 `page_last_edited_at`
    3. 再运行一次 init-wiki：应该问「是否覆盖？」，代答否。再读根页面，`page_last_edited_at` 不变
@@ -190,7 +194,7 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
        性能项另写实测耗时和门槛。最后一行写 summary 和 VAL-019 的结论
 
 16. **清理**：
-    1. 列出要移入回收站的测试页面：测试根页面「LLM Wiki 系统（测试）」（链接；它下面的数据库、样本、生成的页面会一起移走），
+    1. 列出要移入回收站的测试页面：测试根页面（链接；它下面的数据库、样本、生成的页面会一起移走），
        以及要删除的临时克隆和 `results.json` 的路径。说明 Notion 回收站里的页面可以在 Notion 里恢复，
        MCP 目前不能恢复顶层页面；临时克隆删掉后不能恢复，但里面的提交没有推送，不影响 GitHub
     2. 问：「是否移入回收站并删除以上临时文件？」**用户同意后**才用 `notion-delete-pages` 移走测试根页面、删除临时目录；

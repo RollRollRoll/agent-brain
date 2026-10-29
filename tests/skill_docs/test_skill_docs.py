@@ -27,6 +27,40 @@ class RecordTaskSkillTest(unittest.TestCase):
         self.assertTrue(meta.get("description"), "description 不能为空")
 
 
+class InitWikiSkillTest(unittest.TestCase):
+    """ADR 0011：根页面可以用已有页面或新建，登记在项目本地文件里。"""
+
+    SKILL = WIKI_ADMIN / "skills/init-wiki/SKILL.md"
+    LOCATE = WIKI_ADMIN / "references/locate-wiki.md"
+
+    def test_没指定时先问用已有页面还是新建(self):
+        text = self.SKILL.read_text(encoding="utf-8")
+        self.assertIn("Wiki 根页面用哪个？", text)
+        self.assertIn("用已有页面", text)
+        self.assertIn("新建页面", text)
+        self.assertIn("不要改这个页面的标题和原有内容", text)
+
+    def test_init_wiki和定位Wiki用同一个登记文件(self):
+        for path in (self.SKILL, self.LOCATE):
+            with self.subTest(file=path.name):
+                self.assertIn(".agent-brain/wiki.json", path.read_text(encoding="utf-8"))
+
+    def test_先找项目登记文件再找用户登记文件(self):
+        text = self.LOCATE.read_text(encoding="utf-8")
+        self.assertIn("~/.agent-brain/wiki.json", text)
+        self.assertLess(text.index("项目登记文件"), text.index("用户登记文件"))
+        self.assertIn("登记到哪里？", self.SKILL.read_text(encoding="utf-8"))
+
+    def test_没有登记时不按标题搜索(self):
+        text = self.LOCATE.read_text(encoding="utf-8")
+        self.assertIn("不要按标题去 Notion 里搜", text)
+        self.assertNotIn("notion-search", text)
+
+    def test_登记文件不提交(self):
+        lines = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertIn(".agent-brain/", lines)
+
+
 class AnalyzeFailuresSkillTest(unittest.TestCase):
     SKILL = WIKI_ADMIN / "skills/analyze-failures/SKILL.md"
     TYPES = WIKI_ADMIN / "skills/analyze-failures/references/failure-types.md"

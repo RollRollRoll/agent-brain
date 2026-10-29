@@ -57,12 +57,19 @@ codex plugin add wiki-admin@agent-brain
 /wiki-admin:init-wiki
 ```
 
-会创建根页面「LLM Wiki 系统」、5 个数据库（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）、
+它会先问根页面用哪个：用你已有的页面（标题和原有内容不变），或者新建一个（默认标题「LLM Wiki 系统」）。
+然后在根页面下创建 5 个数据库（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）、
 Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页面。结构定义见
 [schema.md](plugins/wiki-admin/skills/init-wiki/references/schema.md)。
 
-想先试用，可以说"建一个测试 Wiki"，它会用标题「LLM Wiki 系统（测试）」另建一套。
-其他命令按根页面标题找到 Wiki，所以不要在 Notion 里改这个标题。
+根页面登记在 `.agent-brain/wiki.json`，init-wiki 会问登记到哪里（ADR 0011）：
+
+- **用户目录** `~/.agent-brain/wiki.json`（推荐）：所有项目都用这个 Wiki，在别的项目里执行生成的 skill 也能记录结果
+- **当前项目** `<项目>/.agent-brain/wiki.json`：只有这个项目用，优先于用户目录的登记
+
+Wiki 已经在 Notion 里建好时，运行 init-wiki 选「用已有页面」并给出根页面链接，它只登记，不改 Notion。
+
+想先试用，可以说"建一个测试 Wiki"，它会另建一套，登记为测试 Wiki。
 
 ### 5. 入库材料
 
@@ -95,7 +102,7 @@ agent 会说明没能记录。
 
 | 命令 | 做什么 | 会改 Notion 吗 |
 |---|---|---|
-| `/wiki-admin:init-wiki` | 建 Wiki 结构，或建测试 Wiki | 会；已存在时先问是否覆盖 |
+| `/wiki-admin:init-wiki` | 选已有页面或新建页面作根页面，建 Wiki 结构并登记到用户目录或当前项目 | 会；已存在时先问是否覆盖 |
 | `/wiki-admin:ingest` | 把 Sources 里待处理的材料提炼成 Wiki 页面 | 你确认后才写 |
 | `/wiki-admin:resolve-conflict <冲突>` | 处理一条冲突；`history <页面>` 查变更历史 | 你选了处理方式并确认后才改 |
 | `/wiki-admin:lint-wiki` | 检查矛盾、过时、缺失链接、孤岛页面 | 只有你确认的缺失链接会补上 |
@@ -103,13 +110,13 @@ agent 会说明没能记录。
 | `/wiki-admin:record-task` | 记录一次任务结果（生成的 skill 会自动调用） | 写一条 Agent Tasks |
 | `/wiki-admin:analyze-failures` | 分析失败记录，建议修 skill 或补 Wiki | 每处修改都要你确认 |
 
-所有命令都可以加一句「测试 Wiki」，改为操作「LLM Wiki 系统（测试）」。
+所有命令都可以加一句「测试 Wiki」，改为操作登记的测试 Wiki。
 
 ## 验证整个系统
 
 在本仓库目录里打开 Claude Code，运行 `/verify-system`（项目级 skill，不随 plugin 发布）。它会：
 
-1. 在你指定的页面下重建「LLM Wiki 系统（测试）」，不碰正式 Wiki
+1. 在你指定的页面下重建测试 Wiki「LLM Wiki 系统（测试）」，不碰正式 Wiki
 2. 用 [`tests/fixtures/verify-demo/samples/`](tests/fixtures/verify-demo/samples/) 的样本依次运行上面的命令，
    用回读结果逐项判定 spec §4.3 的 VAL-001 ~ VAL-018，并实测入库、同步 50 个 skill、加载 skill 的耗时
 3. 输出每一项的通过 / 失败和依据（VAL-019）
@@ -129,10 +136,10 @@ python3 .claude/skills/verify-system/scripts/verify_tools.py static --repo .
 
 **`notion-*` 工具不出现**：确认 `claude mcp list` 里有 notion，运行 `/mcp` 重新登录，然后重启会话。
 
-**提示「还没有这个 Wiki」**：先运行 `/wiki-admin:init-wiki`。如果 Wiki 已经建过，检查根页面标题是否被改过，
-命令靠「LLM Wiki 系统」这个标题找到它；改回原标题即可。
+**提示「还没有登记 Wiki」**：项目和用户目录的 `.agent-brain/wiki.json` 里都没有记录。运行 `/wiki-admin:init-wiki`；
+Wiki 已经在 Notion 里建过时，选「用已有页面」并给出根页面链接，它只登记，不改 Notion。
 
-**提示找到多个 Wiki**：工作区里有不止一个同名根页面。按提示选一个，或把多余的移入回收站。
+**提示「登记的根页面已失效」**：根页面被移入回收站或删掉了。在 Notion 里恢复它，或重新运行 `/wiki-admin:init-wiki`。
 
 **遇到 `rate_limited`**：命令会按 Notion 返回的等待时间重试一次，还失败就停下并列出已完成的部分，稍后重新运行即可。
 
