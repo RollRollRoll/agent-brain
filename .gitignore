@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# 本项目登记的 Wiki 根页面（ADR 0011）
+.agent-brain/
+
 # Python
 __pycache__/
 *.py[cod]

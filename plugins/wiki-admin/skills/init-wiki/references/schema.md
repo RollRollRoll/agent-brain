@@ -4,7 +4,8 @@
 
 ## 根页面与分类页面
 
-- 根页面标题：`LLM Wiki 系统`
+- 根页面：用户已有的页面，或新建页面（默认标题 `LLM Wiki 系统`，测试 Wiki 为 `LLM Wiki 系统（测试）`），
+  登记在当前项目的 `.agent-brain/wiki.json`（见 [定位 Wiki](../../../references/locate-wiki.md)）
 - 分类页面（建在根页面下）：`concepts/`、`techniques/`、`tools/`
 - Wiki 页面本身就是 Wiki Index 的条目（ADR 0007）。分类页面不存放内容，
   只放一个 Wiki Index 的 Gallery 视图，按「分类」筛选出对应条目
