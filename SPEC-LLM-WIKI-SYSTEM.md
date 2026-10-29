@@ -15,7 +15,8 @@ related_adrs:
   - docs/adr/0008-locate-wiki-by-notion.md
   - docs/adr/0009-repo-as-plugin-marketplace.md
   - docs/adr/0010-codex-plugin-support.md
-last_updated: 2026-10-22
+  - docs/adr/0011-register-wiki-root-in-project.md
+last_updated: 2026-10-29
 ```
 
 ---
@@ -141,8 +142,9 @@ last_updated: 2026-10-22
 
 - GIVEN 用户已安装托管 Notion MCP 并通过 `/mcp` 完成 OAuth 登录
 - WHEN 用户运行 `/init-wiki` 命令
-- THEN 系统在 Notion 中创建以下结构：
-  - 1 个顶层页面"LLM Wiki 系统"
+- THEN 系统先问根页面用已有页面还是新建页面（用户在请求里说了就不问），新建时默认标题"LLM Wiki 系统"
+- AND 把根页面登记到用户目录或当前项目的 `.agent-brain/wiki.json`，由用户选（ADR 0011）
+- AND 在根页面下创建以下结构：
   - 5 个数据库：Sources, Wiki Index, Agent Tasks, Wiki Changelog, Conflicts
   - 3 个 Wiki 分类页面：concepts/, techniques/, tools/
 - AND 为每个数据库配置正确的字段和视图（Board/Gallery/Table）
@@ -830,7 +832,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | **Wiki Changelog Database** | Data | Add | 字段：Wiki 页面（关联 Wiki Index）、变更时间、来源材料（关联 Sources）、变更类型（新建/更新/冲突解决）、详情 | REQ-007 |
 | **Conflicts Database** | Data | Add | 字段：Wiki 页面、冲突类型、新材料、原有内容摘要、新内容摘要、证据链接、证据强度评分、状态（待审核/已解决）、解决方案 | REQ-003, REQ-007 |
 | **Wiki 页面** | Data | Add | 即 Wiki Index 条目：正文为页面内容（Markdown），相关页面用页面提及链接；concepts/、techniques/、tools/ 分类页面只放按「分类」筛选的视图（ADR 0007） | REQ-001, REQ-002 |
-| **Wiki 定位** | Contract | Add | 不保存本地配置。skill 每次运行时按根页面标题精确搜索（正式「LLM Wiki 系统」，测试「LLM Wiki 系统（测试）」），从根页面内容读出各数据库 URL、data source ID 和分类页面；找到多个时问用户，找不到时提示先运行 `/init-wiki`（ADR 0008） | REQ-001 ~ REQ-008 |
+| **Wiki 定位** | Contract | Add | `/init-wiki` 把正式和测试 Wiki 的根页面 URL 登记在 `.agent-brain/wiki.json`，位置是当前项目或用户目录；其他 skill 先读项目的、没有再读用户目录的，再从根页面内容读出各数据库 URL、data source ID 和分类页面；没有登记时提示先运行 `/init-wiki`，不按标题搜索（ADR 0011，取代 ADR 0008） | REQ-001 ~ REQ-008 |
 | **sync-metadata.json** | Data | Add | 格式：{ "last_sync": "ISO timestamp", "skills": [{ "notion_page_id": "", "skill_path": "", "last_sync": "" }] } | REQ-005 |
 | **Notion MCP 工具** | API | Use | 由 agent 在会话中调用，见下方契约 | 所有 Notion 操作 |
 | **Claude Code Skill Format** | API | Use | 输入：SKILL.md 文件（frontmatter + 正文）；输出：skill 可被 Skill() 工具加载 | REQ-005, REQ-006 |
