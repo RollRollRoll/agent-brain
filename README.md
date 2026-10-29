@@ -59,7 +59,7 @@ codex plugin add wiki-admin@agent-brain
 
 它会先问根页面用哪个：用你已有的页面（标题和原有内容不变），或者新建一个（默认标题「LLM Wiki 系统」）。
 然后在根页面下创建 5 个数据库（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）、
-Board / Gallery 视图，以及 concepts/、techniques/、tools/ 三个分类页面。结构定义见
+Board / Gallery 视图，以及 concepts、techniques、tools 三个分类页面。结构定义见
 [schema.md](plugins/wiki-admin/skills/init-wiki/references/schema.md)。
 
 根页面登记在 `.agent-brain/wiki.json`，init-wiki 会问登记到哪里（ADR 0011）：

@@ -51,7 +51,7 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
    - **用已有页面**：`notion-fetch` 用户给的链接。不是页面（例如是数据库）、打不开或在回收站里时，告诉用户原因，
      请用户换一个。这个页面已登记为另一个 Wiki（正式 / 测试）的根页面时，停下告诉用户，不要两个 Wiki 共用一个根页面。
      再看页面内容里有没有和 Wiki 结构同名的 `<database>`（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）
-     和 `<page>`（concepts/、techniques/、tools/）：
+     和 `<page>`（concepts、techniques、tools）：
      - 8 个都有：这是一个已建好的 Wiki。问用户：「这个页面下已经有 Wiki 结构，是直接登记到本地（不改 Notion），
        还是覆盖重建？」选登记：做第 6 步，然后跳到第 10 步核对，再汇报。选覆盖：按第 3 步的确认方式，
        只把这 8 个移入回收站，继续往下
@@ -93,7 +93,7 @@ description: 在 Notion 中初始化 LLM Wiki 结构（根页面、5 个数据�
 
    单个视图失败时记下错误，继续往下，不回滚已建好的结构。
 
-9. **建分类页面**：在根页面下用 `notion-create-pages` 一次创建 `concepts/`、`techniques/`、`tools/`。
+9. **建分类页面**：在根页面下用 `notion-create-pages` 一次创建 `concepts`、`techniques`、`tools`。
    然后按 schema.md 的分类页面视图表，在每个分类页面里用 `notion-create-view` 建 Wiki Index 的 Gallery 视图：
    传 `parent_page_id`（分类页面）和 Wiki Index 的 `data_source_id`，不传 `database_id`；
    `show_data_source_title` 设为 `false`；`configure` 例如 `FILTER "分类" = "concepts"; SHOW "领域标签", "简短摘要"`。

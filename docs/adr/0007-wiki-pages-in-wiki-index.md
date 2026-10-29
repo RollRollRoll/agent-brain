@@ -6,13 +6,13 @@
 
 ## 背景
 
-spec 同时写了 Wiki Index 数据库（每个 Wiki 页面一条索引）和 concepts/、techniques/、tools/ 层级页面
+spec 同时写了 Wiki Index 数据库（每个 Wiki 页面一条索引）和 concepts、techniques、tools 层级页面
 （每个页面包含 Markdown 内容和双向链接），没有说清知识内容到底存在哪里。#4 入库要往里写，必须先定下来。
 
 ## 决策
 
 - 每个 Wiki 页面就是 Wiki Index 中的一条记录：正文是条目页面的内容，分类、领域标签、简短摘要、来源材料是条目属性。
-- concepts/、techniques/、tools/ 三个分类页面不存放内容，只放一个 Wiki Index 的 Gallery 视图，按「分类」筛选。
+- concepts、techniques、tools 三个分类页面不存放内容，只放一个 Wiki Index 的 Gallery 视图，按「分类」筛选。
 - 页面之间用 Notion 页面提及链接；被提及的页面由 Notion 自动显示反向链接。
 
 ## 候选方案

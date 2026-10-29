@@ -55,6 +55,6 @@ wiki-admin 的 skill 都按本文找到要操作的 Wiki。根页面登记在本
 3. 根页面内容里的 `<database url="..." data-source-url="collection://...">名称</database>`
    给出每个数据库的 URL 和 data source ID，`<page url="...">名称</page>` 给出分类页面。
 4. 核对 5 个数据库（Sources、Wiki Index、Agent Tasks、Wiki Changelog、Conflicts）和 3 个分类页面
-   （concepts/、techniques/、tools/）都在。缺了哪个就停下，告诉用户缺什么，建议运行 `/wiki-admin:init-wiki` 选择覆盖重建。
+   （concepts、techniques、tools）都在。缺了哪个就停下，告诉用户缺什么，建议运行 `/wiki-admin:init-wiki` 选择覆盖重建。
 
 登记文件不同步：换机器后要重新运行一次 init-wiki 登记。

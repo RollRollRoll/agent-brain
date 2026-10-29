@@ -146,7 +146,7 @@ last_updated: 2026-10-29
 - AND 把根页面登记到用户目录或当前项目的 `.agent-brain/wiki.json`，由用户选（ADR 0011）
 - AND 在根页面下创建以下结构：
   - 5 个数据库：Sources, Wiki Index, Agent Tasks, Wiki Changelog, Conflicts
-  - 3 个 Wiki 分类页面：concepts/, techniques/, tools/
+  - 3 个 Wiki 分类页面：concepts, techniques, tools
 - AND 为每个数据库配置正确的字段和视图（Board/Gallery/Table）
 - AND 返回所有创建页面的链接供用户检查
 
@@ -323,11 +323,11 @@ last_updated: 2026-10-29
 
 ##### SCN-005-A：首次同步
 
-- GIVEN Notion Wiki 的 techniques/ 中有 3 个页面
+- GIVEN Notion Wiki 的 techniques 中有 3 个页面
 - AND 其中 2 个页面包含明确的步骤、工具、输入输出（可执行技能）
 - AND 本地 Git 仓库 `agent-brain` 已克隆
 - WHEN 用户运行 `/sync-skills`
-- THEN 系统读取 techniques/ 的所有页面
+- THEN 系统读取 techniques 的所有页面
 - AND 识别可执行技能（有步骤、工具、前置条件）
 - AND 对比本地 `agent-brain` 仓库，检测新增/修改/删除
 - AND 生成符合 Claude Code skill 规范的 SKILL.md 文件
@@ -447,7 +447,7 @@ last_updated: 2026-10-29
 - GIVEN Agent 失败原因="无法理解任务：'故障艺术效果'没有明确步骤"
 - WHEN LLM 分析失败
 - THEN 系统识别失败类型为"知识不足"
-- AND 建议："Notion Wiki 的 techniques/故障艺术效果 页面缺少详细步骤，需要补充"
+- AND 建议："Notion Wiki 中 techniques 分类的「故障艺术效果」页面缺少详细步骤，需要补充"
 - AND 用户确认后，LLM 在 Notion Wiki 中标记该页面需要补充
 
 ---
@@ -572,7 +572,7 @@ Agent MUST 在 10 秒内加载并开始执行本地 skill（不包括 skill 本�
 
 使用 **5 个 Notion 数据库** + **层级页面结构**：
 - 数据库：Sources, Wiki Index, Agent Tasks, Wiki Changelog, Conflicts
-- 层级页面：Wiki（concepts/, techniques/, tools/）
+- 层级页面：Wiki（concepts, techniques, tools）
 
 **Alternatives**
 
@@ -798,7 +798,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 **流程 2：同步技能**
 ```
 用户运行 /sync-skills
-  → Skill Sync Engine 读取 Notion techniques/
+  → Skill Sync Engine 读取 Notion techniques
   → 识别可执行技能
   → 对比 sync-metadata.json
   → 检测新增/修改/删除/冲突
@@ -831,7 +831,7 @@ LLM 读取错误消息和堆栈跟踪，匹配到类型并建议修复方案。
 | **Agent Tasks Database** | Data | Add | 字段：任务名、使用的 Skill、执行时间、状态（成功/失败）、结果摘要、失败原因、反馈/问题 | REQ-006, REQ-008 |
 | **Wiki Changelog Database** | Data | Add | 字段：Wiki 页面（关联 Wiki Index）、变更时间、来源材料（关联 Sources）、变更类型（新建/更新/冲突解决）、详情 | REQ-007 |
 | **Conflicts Database** | Data | Add | 字段：Wiki 页面、冲突类型、新材料、原有内容摘要、新内容摘要、证据链接、证据强度评分、状态（待审核/已解决）、解决方案 | REQ-003, REQ-007 |
-| **Wiki 页面** | Data | Add | 即 Wiki Index 条目：正文为页面内容（Markdown），相关页面用页面提及链接；concepts/、techniques/、tools/ 分类页面只放按「分类」筛选的视图（ADR 0007） | REQ-001, REQ-002 |
+| **Wiki 页面** | Data | Add | 即 Wiki Index 条目：正文为页面内容（Markdown），相关页面用页面提及链接；concepts、techniques、tools 分类页面只放按「分类」筛选的视图（ADR 0007） | REQ-001, REQ-002 |
 | **Wiki 定位** | Contract | Add | `/init-wiki` 把正式和测试 Wiki 的根页面 URL 登记在 `.agent-brain/wiki.json`，位置是当前项目或用户目录；其他 skill 先读项目的、没有再读用户目录的，再从根页面内容读出各数据库 URL、data source ID 和分类页面；没有登记时提示先运行 `/init-wiki`，不按标题搜索（ADR 0011，取代 ADR 0008） | REQ-001 ~ REQ-008 |
 | **sync-metadata.json** | Data | Add | 格式：{ "last_sync": "ISO timestamp", "skills": [{ "notion_page_id": "", "skill_path": "", "last_sync": "" }] } | REQ-005 |
 | **Notion MCP 工具** | API | Use | 由 agent 在会话中调用，见下方契约 | 所有 Notion 操作 |

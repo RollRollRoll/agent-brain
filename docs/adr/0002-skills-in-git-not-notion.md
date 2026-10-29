@@ -68,7 +68,7 @@
 **触发方式**：手动（运行 `/sync-skills` 命令）
 
 **逻辑**：
-1. LLM 读取 Notion Wiki 的 `techniques/` 分类
+1. LLM 读取 Notion Wiki 的 `techniques` 分类
 2. 识别可执行技能（有明确步骤、工具、输入输出）
 3. 对比本地 skill 仓库，找出新增/修改/删除的技能
 4. 生成/更新符合 Claude Code skill 格式的文件
