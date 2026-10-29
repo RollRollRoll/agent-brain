@@ -112,7 +112,7 @@ SKILL.md 里的相对链接按它自己所在的目录解析。每个命令都�
 
 5. **入库（VAL-002、VAL-016）**：
    1. 运行 `python3 -c "import time; print(time.time())"` 记下开始时间，按 ingest 运行
-   2. ingest 第 6 步展示建议时再记一次时间，两者之差就是 VAL-016 的 `seconds`（QOS-001：到「建议更新 Wiki」为止，
+   2. ingest 第 7 步展示建议时再记一次时间，两者之差就是 VAL-016 的 `seconds`（QOS-001：到「建议更新 Wiki」为止，
       不含确认之后的写入）。`evidence` 写材料字数和遇到的 `rate_limited` 等待
    3. 代答「是」，写完后回读：Wiki Index 有新页面，正文包含样本 A 的要点（引用一两句）、「来源材料」是样本 A；
       Wiki Changelog 有对应的「新建」记录；样本 A 状态是「已入库」。满足为 VAL-002 pass
